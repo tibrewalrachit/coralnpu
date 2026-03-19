@@ -1,0 +1,32 @@
+{"synthetic": false,
+ "schemaVersion": "2025-09-10",
+ "outputs":
+ {"o": ["60167daf7cbf1b9b.olean"],
+  "i": "74cee5265c578961.ilean",
+  "c": "179b20995962b818.c"},
+ "log":
+ [{"message":
+   ".> LEAN_PATH=/Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/packages/MD4Lean/.lake/build/lib/lean:/Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/packages/BibtexQuery/.lake/build/lib/lean:/Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/packages/UnicodeBasic/.lake/build/lib/lean:/Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/packages/Cli/.lake/build/lib/lean:/Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/packages/doc-gen4/.lake/build/lib/lean:/Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/packages/LSpec/.lake/build/lib/lean:/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean:/Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/build/lib/lean /Users/rachittibrewal/.elan/toolchains/leanprover--lean4---v4.28.0-rc1/bin/lean /Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/CoralNPU/Interfaces.lean -o /Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/build/lib/lean/CoralNPU/Interfaces.olean -i /Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/build/lib/lean/CoralNPU/Interfaces.ilean -c /Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/build/ir/CoralNPU/Interfaces.c --setup /Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/build/ir/CoralNPU/Interfaces.setup.json --json",
+   "level": "trace"}],
+ "inputs":
+ [["CoralNPU.Interfaces:deps",
+   [["deps",
+     [["CoralNPU/CoralNPU:extraDep",
+       [["@CoralNPU:extraDep", "00000000000006bb"]]],
+      ["imports",
+       [["Sparkle transitive imports (legacy)", "382c0f5133189b44"],
+        ["Sparkle:importAllArts", "a3c602b8e9b205a5"],
+        ["CoralNPU.Parameters transitive imports (legacy)", "9f07be3eda7d4726"],
+        ["CoralNPU.Parameters:importAllArts", "a8e91cf10b484c9c"]]]]],
+    ["libs",
+     [["import dynlibs", "00000000000006bb"],
+      ["package external libraries", "00000000000006bb"],
+      ["module dynlibs", "00000000000006bb"],
+      ["module plugins", "00000000000006bb"]]]]],
+  ["Lean 4.28.0, commit 3b0f2862196c6a8af9eb0025ee650252694013dd",
+   "612345b87aa96642"],
+  ["/Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/CoralNPU/Interfaces.lean",
+   "5afd6c15ff2ad53d"],
+  ["options", "00000000000006bb"],
+  ["Module.leanArgs: #[]", "00000000000006bb"]],
+ "depHash": "924d12c5a5701811"}

@@ -15,7 +15,11 @@
 #include "tests/verilator_sim/elf.h"
 
 #include <cstring>
+#ifdef __APPLE__
+#include "tests/verilator_sim/elf_compat.h"
+#else
 #include <elf.h>
+#endif
 
 uint32_t LoadElf(uint8_t* data, CopyFn copy_fn) {
   const Elf32_Ehdr* elf_header = reinterpret_cast<Elf32_Ehdr*>(data);

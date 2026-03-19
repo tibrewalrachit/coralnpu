@@ -1,0 +1,45 @@
+{"synthetic": false,
+ "schemaVersion": "2025-09-10",
+ "outputs":
+ {"o": ["768ac2323351c599.olean"],
+  "i": "c7c38295a18f1dc3.ilean",
+  "c": "b04a3f55cf7c6a17.c"},
+ "log":
+ [{"message":
+   ".> LEAN_PATH=/Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/packages/MD4Lean/.lake/build/lib/lean:/Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/packages/BibtexQuery/.lake/build/lib/lean:/Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/packages/UnicodeBasic/.lake/build/lib/lean:/Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/packages/Cli/.lake/build/lib/lean:/Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/packages/doc-gen4/.lake/build/lib/lean:/Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/packages/LSpec/.lake/build/lib/lean:/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean:/Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/build/lib/lean /Users/rachittibrewal/.elan/toolchains/leanprover--lean4---v4.28.0-rc1/bin/lean /Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/CoralNPU/Common/Fifo.lean -o /Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/build/lib/lean/CoralNPU/Common/Fifo.olean -i /Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/build/lib/lean/CoralNPU/Common/Fifo.ilean -c /Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/build/ir/CoralNPU/Common/Fifo.c --setup /Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/build/ir/CoralNPU/Common/Fifo.setup.json --json",
+   "level": "trace"},
+  {"message":
+   "CoralNPU/Common/Fifo.lean:39:5: unused variable `params`\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`",
+   "level": "warning"},
+  {"message":
+   "CoralNPU/Common/Fifo.lean:53:7: unused variable `v_in`\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`",
+   "level": "warning"},
+  {"message":
+   "CoralNPU/Common/Fifo.lean:53:12: unused variable `r_in`\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`",
+   "level": "warning"},
+  {"message":
+   "CoralNPU/Common/Fifo.lean:53:23: unused variable `d_out`\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`",
+   "level": "warning"}],
+ "inputs":
+ [["CoralNPU.Common.Fifo:deps",
+   [["deps",
+     [["CoralNPU/CoralNPU:extraDep",
+       [["@CoralNPU:extraDep", "00000000000006bb"]]],
+      ["imports",
+       [["Sparkle transitive imports (legacy)", "382c0f5133189b44"],
+        ["Sparkle:importAllArts", "a3c602b8e9b205a5"],
+        ["CoralNPU.Common.Library transitive imports (legacy)",
+         "b14f494a3738c49e"],
+        ["CoralNPU.Common.Library:importAllArts", "35f89e024e6a7cc1"]]]]],
+    ["libs",
+     [["import dynlibs", "00000000000006bb"],
+      ["package external libraries", "00000000000006bb"],
+      ["module dynlibs", "00000000000006bb"],
+      ["module plugins", "00000000000006bb"]]]]],
+  ["Lean 4.28.0, commit 3b0f2862196c6a8af9eb0025ee650252694013dd",
+   "612345b87aa96642"],
+  ["/Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/CoralNPU/Common/Fifo.lean",
+   "cef1c96e75c24a06"],
+  ["options", "00000000000006bb"],
+  ["Module.leanArgs: #[]", "00000000000006bb"]],
+ "depHash": "e55188eef4c0c9a4"}

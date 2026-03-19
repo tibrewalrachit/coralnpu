@@ -46,14 +46,12 @@
 
 #include "soc/interconnect/iconnect.h"
 #include "tests/verilator_sim/util.h"
-#define MODEL_HEADER_SUFFIX .h
-#define MODEL_HEADER STRINGIFY(VERILATOR_MODEL MODEL_HEADER_SUFFIX)
-#include MODEL_HEADER
-
-#define PARAMS_HEADER_PREFIX hdl/chisel/src/coralnpu/
-#define PARAMS_HEADER_SUFFIX _parameters.h
-#define PARAMS_HEADER STRINGIFY(PARAMS_HEADER_PREFIX VERILATOR_MODEL PARAMS_HEADER_SUFFIX)
-#include PARAMS_HEADER
+// VERILATOR_MODEL_HEADER and VERILATOR_PARAMS_HEADER must be defined as string
+// literals by the build system, e.g.:
+//   VERILATOR_MODEL_HEADER="VCoreMiniAxi.h"
+//   VERILATOR_PARAMS_HEADER="hdl/chisel/src/coralnpu/VCoreMiniAxi_parameters.h"
+#include VERILATOR_MODEL_HEADER
+#include VERILATOR_PARAMS_HEADER
 
 struct CoreMiniAxi_tb : Sysc_tb {
  public:

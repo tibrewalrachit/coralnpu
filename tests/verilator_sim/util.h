@@ -23,4 +23,10 @@
 #define STRINGIFY(x) STRINGIFY_(x)
 #define STRINGIFY_(x) #x
 
+// Paste three tokens together then stringify. Used to build filenames like
+// "VCoreMiniAxi.h" from separate macro pieces without the space that
+// STRINGIFY(A B) would insert between tokens.
+#define PP_CAT3(a, b, c) PP_CAT3_(a, b, c)
+#define PP_CAT3_(a, b, c) a##b##c
+
 #endif  // TESTS_VERILATOR_SIM_UTIL_H_

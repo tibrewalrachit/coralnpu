@@ -1,0 +1,51 @@
+{"plugins": [],
+ "package": "CoralNPU",
+ "options": {},
+ "name": "CoralNPU.Interfaces",
+ "isModule": false,
+ "importArts":
+ {"Sparkle.Verification.Temporal":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/Verification/Temporal.olean"],
+  "Sparkle.Utils.HexLoader":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/Utils/HexLoader.olean"],
+  "Sparkle.IR.Type":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/IR/Type.olean"],
+  "Sparkle.IR.Optimize":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/IR/Optimize.olean"],
+  "Sparkle.IR.Builder":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/IR/Builder.olean"],
+  "Sparkle.IR.AST":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/IR/AST.olean"],
+  "Sparkle.Data.BitPack":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/Data/BitPack.olean"],
+  "Sparkle.Core.Vector":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/Core/Vector.olean"],
+  "Sparkle.Core.StateMacro":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/Core/StateMacro.olean"],
+  "Sparkle.Core.Signal":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/Core/Signal.olean"],
+  "Sparkle.Core.Oracle":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/Core/Oracle.olean"],
+  "Sparkle.Core.OptimizedSim":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/Core/OptimizedSim.olean"],
+  "Sparkle.Core.JITLoop":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/Core/JITLoop.olean"],
+  "Sparkle.Core.JIT":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/Core/JIT.olean"],
+  "Sparkle.Core.Domain":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/Core/Domain.olean"],
+  "Sparkle.Compiler.Elab":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/Compiler/Elab.olean"],
+  "Sparkle.Compiler.DRC":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/Compiler/DRC.olean"],
+  "Sparkle.Backend.Verilog":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/Backend/Verilog.olean"],
+  "Sparkle.Backend.VCD":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/Backend/VCD.olean"],
+  "Sparkle.Backend.CppSim":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle/Backend/CppSim.olean"],
+  "Sparkle":
+  ["/Users/rachittibrewal/verilator_accelerated/sparkle/.lake/build/lib/lean/Sparkle.olean"],
+  "CoralNPU.Parameters":
+  ["/Users/rachittibrewal/verilator_accelerated/coralnpu/hdl/sparkle/.lake/build/lib/lean/CoralNPU/Parameters.olean"]},
+ "dynlibs": []}

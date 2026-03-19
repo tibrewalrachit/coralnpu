@@ -67,7 +67,7 @@ load("@pybind11_bazel//:python_configure.bzl", "python_configure")
 python_configure(
     name = "local_config_python",
     python_version = "3",
-    python_interpreter_target = "@python311_x86_64-unknown-linux-gnu//:python",
+    python_interpreter_target = "@python311_aarch64-apple-darwin//:python",
 )
 coralnpu_repos2()
 
@@ -116,7 +116,7 @@ load("@rules_python//python:pip.bzl", "pip_parse")
 
 pip_parse(
     name = "ot_python_deps",
-    python_interpreter_target = "@python311_x86_64-unknown-linux-gnu//:python",
+    python_interpreter_target = "@python311_aarch64-apple-darwin//:python",
     requirements_lock = "@lowrisc_opentitan_gh//:python-requirements.txt",
 )
 

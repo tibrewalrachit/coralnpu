@@ -75,10 +75,12 @@ build:coralnpu_v2 --platforms=//platforms:coralnpu_v2
 build --incompatible_enable_cc_toolchain_resolution
 build --use_top_level_targets_for_symlinks=false
 
-# Use GNU BFD linker (compatible with GCC 15 .sframe)
-build --host_linkopt=-fuse-ld=bfd
-build --linkopt=-fuse-ld=bfd
-
-# Disable LLD-specific "start-lib" optimization (incompatible with BFD)
+# Disable LLD-specific "start-lib" optimization
 build --host_features=-supports_start_end_lib
 build --features=-supports_start_end_lib
+
+# Fix net_zlib build on macOS: zutil.h defines fdopen as a macro when TARGET_OS_MAC
+# is set, which conflicts with the stdio.h declaration included later. Force-including
+# stdio.h first ensures it is already processed (and include-guarded) before zutil.h
+# defines the macro, preventing the parse error when gzguts.h re-includes stdio.h.
+build --per_file_copt=external/net_zlib/.*\.c@-include,stdio.h

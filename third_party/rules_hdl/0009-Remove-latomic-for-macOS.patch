@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Local Fix <local@local>
+Subject: [PATCH] Remove -latomic for macOS compatibility
+
+macOS/Apple clang does not have a separate libatomic; atomic operations
+are provided by the compiler runtime. Remove -latomic from verilator
+binary linkopts so the build succeeds on macOS arm64.
+
+---
+ dependency_support/verilator/verilator.BUILD.bazel | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/dependency_support/verilator/verilator.BUILD.bazel b/dependency_support/verilator/verilator.BUILD.bazel
+index 1111111..2222222 100644
+--- a/dependency_support/verilator/verilator.BUILD.bazel
++++ b/dependency_support/verilator/verilator.BUILD.bazel
+@@ -425,7 +425,6 @@ cc_binary(
+     linkopts = [
+         "-lpthread",
+-        "-latomic",
+     ],
+     visibility = ["//visibility:public"],
+     deps = [":verilator_libV3"],
+ )
+@@ -440,7 +439,6 @@ cc_binary(
+     linkopts = [
+         "-lpthread",
+-        "-latomic",
+     ],
+     visibility = ["//visibility:public"],
+     deps = [":verilator_libV3"],
+     data = [
