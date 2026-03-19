@@ -14,7 +14,11 @@
 
 #include "tests/verilator_sim/coralnpu/core_mini_axi_tb.h"
 
+#ifdef __APPLE__
+#include "tests/verilator_sim/elf_compat.h"
+#else
 #include <elf.h>
+#endif
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
