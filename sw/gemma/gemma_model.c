@@ -102,11 +102,14 @@ static void rms_norm(float* dst, const float* src, const float* gamma,
   for (uint32_t i = 0; i < n; ++i) dst[i] = src[i] * inv * (1.0f + gamma[i]);
 }
 
+// Round-half-away-from-zero without libm: floor(|v|*inv + 0.5) via int
+// truncation. This is bit-identical to the numpy reference (_quant_inv)
+// and keeps the per-element hot path in hardware float.
 static int8_t quant_one(float v, float inv_scale) {
-  float q = roundf(v * inv_scale);
-  if (q > 127.0f) q = 127.0f;
-  if (q < -127.0f) q = -127.0f;
-  return (int8_t)q;
+  float t = fabsf(v) * inv_scale + 0.5f;
+  if (t > 127.0f) t = 127.0f;
+  int32_t q = (int32_t)t;
+  return (int8_t)(v < 0.0f ? -q : q);
 }
 
 // Dynamic per-tensor int8 quantization; returns the scale.
@@ -249,8 +252,9 @@ uint32_t gemma_decode(GemmaModel* m, uint32_t token, float* hidden_out) {
       // probs quantized at fixed scale 1/127, zero outside the window.
       for (uint32_t t = 0; t < start; ++t) g_probs[t] = 0;
       for (uint32_t t = 0; t < rows; ++t) {
-        float q = roundf(g_scores[t] * norm);
-        g_probs[start + t] = (int8_t)(q > 127.0f ? 127.0f : q);
+        float q = g_scores[t] * norm + 0.5f;
+        if (q > 127.0f) q = 127.0f;
+        g_probs[start + t] = (int8_t)q;
       }
       // attn[head] = V^T[:, 0..pos] @ probs.
       gemma_matvec(GEMMA_WTCM_BASE + lo->vtcache, g_probs, g_acc, kvdim,
