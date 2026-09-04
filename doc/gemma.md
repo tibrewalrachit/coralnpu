@@ -150,12 +150,16 @@ baseline scalar core reading the same weights over a 128-bit bus tops out
 DRAM-backed design at, say, 8 GB/s LPDDR sustains ≈25 tokens/s.
 
 The scalar-float glue between engine calls (norms, RoPE, softmax, GeGLU,
-requantization) is currently plain C on the scalar core, and on the
-simulated core it costs the same order of cycles as the engine itself.
-The `RvvCoreMini`-based Gemma variant with the existing RVV unit
-(vectorized quant/softmax/GeGLU) and double-buffering engine calls against
-CPU post-processing are the follow-ups that close the gap to the
-engine-bound number; both are software/wiring work on the same hardware.
+requantization) is currently plain C on the scalar core. Measured on the
+simulated core with the tiny test model, a decode step costs ≈139K cycles
+(engine share ≈2K), i.e. roughly 50–70 cycles per glue element. Scaled to
+the real model's ≈270K glue elements per token, the scalar core would add
+≈13M cycles/token and dominate the 1.43M-cycle engine time. Closing that
+gap is software work on the same hardware: the `RvvCoreMiniGemmaAxi`
+variant runs the same engine next to the RVV unit, and vectorizing the
+glue loops (int8 quant/dequant, polynomial exp/GeLU) at 4–16 lanes plus
+double-buffering engine calls against CPU post-processing brings the glue
+under the engine time, i.e. to the engine-bound numbers above.
 
 ## Software
 
@@ -183,6 +187,10 @@ engine-bound number; both are software/wiring work on the same hardware.
   generated with expected outputs by `gemma_pack.py tiny`) into the WTCM,
   runs the real runtime on the simulated core for several decode steps,
   and checks generated tokens exactly and the final hidden state to 2%.
+  Token-exactness holds across toolchains because the runtime's
+  transcendental kernels (`gm_expf`/`gm_tanhf`/`gm_sincos`) are plain
+  IEEE float32 and mirrored operation-for-operation in the reference,
+  and the runtime is compiled with `-ffp-contract=off`.
 
 ## Limitations / future work
 
