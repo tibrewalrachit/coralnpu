@@ -1,0 +1,106 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# FlooGen configuration for a 2x2 mesh of Coral NPU (CoreMiniAxi) tiles.
+#
+# Each tile exposes:
+#   - one AXI4 manager port  (CoreMiniAxi io_axi_master, 32b addr / 128b data / 6b id)
+#   - one AXI4 subordinate port (CoreMiniAxi io_axi_slave: ITCM/DTCM/CSR window)
+#
+# Additionally the mesh has:
+#   - a "host" manager-only endpoint (external CPU that loads programs into the
+#     tiles' ITCM/DTCM and kicks them off via their CSRs)
+#   - a "mem" subordinate-only endpoint (shared external memory)
+#
+# Address map (32-bit):
+#   0x1000_0000 + 0x0004_0000 * tile_index : Coral NPU tile windows (256 KiB each)
+#     +0x0_0000 ITCM (8 KiB)
+#     +0x1_0000 DTCM (32 KiB)
+#     +0x3_0000 CSR  (4 KiB)
+#   0x8000_0000 : shared memory (16 MiB)
+#
+# Scale the mesh by changing the `array` fields of `coral`, `router` and the
+# connection ranges consistently (see README.md).
+
+name: coralnpu_mesh
+description: "2x2 mesh of Coral NPU tiles with XY routing"
+network_type: "axi"
+
+routing:
+  route_algo: "XY"
+  use_id_table: true
+
+protocols:
+  # Manager ports into the NoC: Coral NPU io_axi_master and the host port.
+  - name: "axi_in"
+    type: "narrow"
+    protocol: "AXI4"
+    data_width: 128
+    addr_width: 32
+    id_width: 6
+    user_width: 1
+    type_prefix: # prevents `axi_axi` prefix
+  # Subordinate ports out of the NoC: Coral NPU io_axi_slave and shared memory.
+  - name: "axi_out"
+    type: "narrow"
+    protocol: "AXI4"
+    data_width: 128
+    addr_width: 32
+    id_width: 6
+    user_width: 1
+    type_prefix:
+
+endpoints:
+  - name: "coral"
+    array: [2, 2]
+    addr_range:
+      base: 0x1000_0000
+      size: 0x0004_0000
+    mgr_port_protocol:
+      - "axi_in"
+    sbr_port_protocol:
+      - "axi_out"
+  - name: "host"
+    mgr_port_protocol:
+      - "axi_in"
+  - name: "mem"
+    addr_range:
+      base: 0x8000_0000
+      size: 0x0100_0000
+    sbr_port_protocol:
+      - "axi_out"
+
+routers:
+  - name: "router"
+    array: [2, 2]
+    degree: 5
+
+connections:
+  - src: "coral"
+    dst: "router"
+    src_range:
+    - [0, 1]
+    - [0, 1]
+    dst_range:
+    - [0, 1]
+    - [0, 1]
+    dst_dir: "Eject"
+  - src: "host"
+    dst: "router"
+    dst_idx: [0, 0]
+    dst_dir: "West"
+  - src: "mem"
+    dst: "router"
+    dst_idx: [1, 1]
+    dst_dir: "East"
