@@ -22,6 +22,14 @@ Coral NPU offers the following top-level feature set:
 * Both memories are single-cycle-latency SRAM, more efficient than cache memory
 * AXI4 bus interfaces, functioning as both manager and subordinate, to interact with external memory and allow external CPUs to configure Coral NPU
 
+## Gemma configuration
+
+The Gemma configuration (`CoreMiniGemmaAxi`) adds a large on-chip weight
+SRAM and a streaming int8 matrix-vector engine so that an entire quantized
+LLM — [google/gemma-3-270m](https://huggingface.co/google/gemma-3-270m),
+320 MiB at int8 — lives in SRAM and decodes at hundreds of tokens per
+second. See [doc/gemma.md](doc/gemma.md).
+
 ## System Requirements
 
 * Bazel 7.4.1

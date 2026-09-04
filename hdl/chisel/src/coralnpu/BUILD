@@ -666,6 +666,20 @@ template_rule(
             ] + RVV_CORE_MINI_AXI_COMMON_GEN_FLAGS,
             "module_name": "RvvCoreMiniHighmemAxi",
         },
+        "rvv_core_mini_gemma_axi_cc_library": {
+            "extra_outs": [
+                "VRvvCoreMiniGemmaAxi_parameters.h",
+                "RvvCoreMiniGemmaAxi.zip",
+            ],
+            "gen_flags": [
+                "--moduleName=RvvCoreMini",
+                "--itcmSizeKBytes=1024",
+                "--dtcmSizeKBytes=1024",
+                "--enableGemma=True",
+                "--wtcmSizeKBytes=8192",
+            ] + RVV_CORE_MINI_AXI_COMMON_GEN_FLAGS,
+            "module_name": "RvvCoreMiniGemmaAxi",
+        },
         "rvv_core_mini_itcm512kb_dtcm512kb_axi_cc_library": {
             "extra_outs": [
                 "VRvvCoreMini_ITCM512KB_DTCM512KBAxi_parameters.h",
