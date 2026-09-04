@@ -112,6 +112,10 @@ object EmitCore extends App {
       p.itcmSizeKBytes = arg.split("=")(1).toInt
     } else if (arg.startsWith("--dtcmSizeKBytes")) {
       p.dtcmSizeKBytes = arg.split("=")(1).toInt
+    } else if (arg.startsWith("--enableGemma")) {
+      p.enableGemma = arg.split("=")(1).toBoolean
+    } else if (arg.startsWith("--wtcmSizeKBytes")) {
+      p.wtcmSizeKBytes = arg.split("=")(1).toInt
     } else if (arg.startsWith("--useAxi")) {
       useAxi = true
     } else if (arg.startsWith("--useTlul")) {
@@ -124,7 +128,9 @@ object EmitCore extends App {
   }
   assert(!(useAxi && useTlul))
 
-  val finalModuleName = if (p.itcmSizeKBytes == Parameters.itcmSizeKBytesDefault && p.dtcmSizeKBytes == Parameters.dtcmSizeKBytesDefault) {
+  val finalModuleName = if (p.enableGemma) {
+    s"${moduleName}Gemma"
+  } else if (p.itcmSizeKBytes == Parameters.itcmSizeKBytesDefault && p.dtcmSizeKBytes == Parameters.dtcmSizeKBytesDefault) {
     moduleName
   } else if (p.itcmSizeKBytes == Parameters.itcmSizeKBytesHighmem && p.dtcmSizeKBytes == Parameters.dtcmSizeKBytesHighmem) {
     s"${moduleName}Highmem"
@@ -132,7 +138,9 @@ object EmitCore extends App {
     s"${moduleName}_ITCM${p.itcmSizeKBytes}KB_DTCM${p.dtcmSizeKBytes}KB"
   }
 
-  val memoryRegions = if (p.itcmSizeKBytes == Parameters.itcmSizeKBytesDefault && p.dtcmSizeKBytes == Parameters.dtcmSizeKBytesDefault) {
+  val memoryRegions = if (p.enableGemma) {
+    MemoryRegions.gemma(p.itcmSizeKBytes, p.dtcmSizeKBytes, p.wtcmSizeKBytes)
+  } else if (p.itcmSizeKBytes == Parameters.itcmSizeKBytesDefault && p.dtcmSizeKBytes == Parameters.dtcmSizeKBytesDefault) {
     MemoryRegions.default
   } else {
     MemoryRegions.highmem(p.itcmSizeKBytes, p.dtcmSizeKBytes)

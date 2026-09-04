@@ -1,4 +1,4 @@
-# Copyright 2024 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,19 +14,14 @@
 
 package(default_visibility = ["//visibility:public"])
 
-load("@rules_python//python:defs.bzl", "py_binary")
-
-py_binary(
-    name = "scm_info",
-    srcs = ["scm_info.py"],
-)
-
-load("@coralnpu_hw//third_party/python:requirements.bzl", "requirement")
-
-# Packs Gemma-3 weights into the Coral NPU Gemma WTCM image format, and
-# generates the tiny random model used by the RTL tests. See doc/gemma.md.
-py_binary(
-    name = "gemma_pack",
-    srcs = ["gemma_pack.py"],
-    deps = [requirement("numpy")],
+# Gemma-3 decode runtime for the Coral NPU Gemma configurations
+# (weight TCM + int8 matrix-vector engine). See doc/gemma.md.
+cc_library(
+    name = "gemma_runtime",
+    srcs = ["gemma_model.c"],
+    hdrs = [
+        "gemma_mmio.h",
+        "gemma_model.h",
+    ],
+    target_compatible_with = ["//platforms/cpu:coralnpu_v2"],
 )

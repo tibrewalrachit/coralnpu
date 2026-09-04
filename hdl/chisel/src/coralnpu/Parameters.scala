@@ -51,6 +51,24 @@ object MemoryRegions {
     new MemoryRegion(0x00100000, dtcmSizeKBytes * 1024, MemoryRegionType.DMEM), // DTCM
     new MemoryRegion(0x00200000, 0x00001000, MemoryRegionType.Peripheral), // CSR
   )
+  // The Gemma configuration extends the highmem map with the matrix-vector
+  // engine CSRs and a large weight TCM sized to hold an entire quantized
+  // LLM (see doc/gemma.md). The first three regions are identical to
+  // `highmem` so existing highmem linker scripts and hosts still work.
+  // Region indices are fixed: 0=ITCM, 1=DTCM, 2=CSR, 3=MatVec CSRs, 4=WTCM.
+  val gemmaMatVecBase = 0x00300000
+  val gemmaWtcmBase = 0x40000000
+  def gemma(itcmSizeKBytes: Int, dtcmSizeKBytes: Int, wtcmSizeKBytes: Int) = {
+    require(wtcmSizeKBytes.toLong * 1024 <= 0x40000000L,
+            "WTCM must fit below 0x80000000")
+    Seq(
+      new MemoryRegion(0x00000000, itcmSizeKBytes * 1024, MemoryRegionType.IMEM), // ITCM
+      new MemoryRegion(0x00100000, dtcmSizeKBytes * 1024, MemoryRegionType.DMEM), // DTCM
+      new MemoryRegion(0x00200000, 0x00001000, MemoryRegionType.Peripheral), // CSR
+      new MemoryRegion(gemmaMatVecBase, 0x00001000, MemoryRegionType.DMEM), // MatVec CSRs
+      new MemoryRegion(gemmaWtcmBase, wtcmSizeKBytes * 1024, MemoryRegionType.DMEM), // WTCM
+    )
+  }
 }
 
 object Parameters {
@@ -124,6 +142,17 @@ class Parameters(var m: Seq[MemoryRegion] = Seq(), val hartId: Int = 0) {
   // TCM Size Configuration
   var itcmSizeKBytes = Parameters.itcmSizeKBytesDefault
   var dtcmSizeKBytes = Parameters.dtcmSizeKBytesDefault
+
+  // Gemma configuration: adds a large weight TCM ("WTCM") and a streaming
+  // int8 matrix-vector engine so an entire quantized LLM (weights + KV
+  // cache) lives in on-chip SRAM. See doc/gemma.md.
+  var enableGemma = false
+  var wtcmSizeKBytes = 8192
+  // Bytes fetched from the WTCM (= int8 MACs retired) per engine cycle.
+  val gemmaRowBytes = 256
+  def gemmaRowBits: Int = { gemmaRowBytes * 8 }
+  // Maximum input-vector length of the matrix-vector engine.
+  val gemmaMaxCols = 2048
 
   // [Internal] L1ICache interface.
   val l1islots = 256

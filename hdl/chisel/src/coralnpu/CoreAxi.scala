@@ -188,15 +188,23 @@ class CoreAxi(p: Parameters, coreModuleName: String) extends RawModule {
     dtcm.io.wdata := dtcmWrapper.io.sram.writeData
     dtcm.io.wmask := dtcmWrapper.io.sram.mask
     dtcmWrapper.io.sram.readData := dtcm.io.rdata
-    val dtcmArbiter = Module(new FabricArbiter(p, tcmPortCount))
+    // In Gemma configurations the matrix-vector engine is a fourth DTCM
+    // port (input vector reads and result writes).
+    val dtcmPortCount = if (p.enableGemma) { tcmPortCount + 1 } else { tcmPortCount }
+    val dtcmArbiter = Module(new FabricArbiter(p, dtcmPortCount))
     dtcmArbiter.io.port <> dtcmWrapper.io.fabric
+
+    // The dbus targets the DTCM in all configurations; Gemma configurations
+    // add the weight TCM and matrix-vector CSRs as further DMEM regions.
+    val dbusInDtcm = if (p.enableGemma) {
+      memoryRegions(1).contains(core.io.dbus.addr)
+    } else { true.B }
     dtcmArbiter.io.source(0).readDataAddr := MakeValid(
-        core.io.dbus.valid && !core.io.dbus.write, core.io.dbus.addr)
+        core.io.dbus.valid && !core.io.dbus.write && dbusInDtcm, core.io.dbus.addr)
     dtcmArbiter.io.source(0).writeDataAddr := MakeValid(
-        core.io.dbus.valid && core.io.dbus.write, core.io.dbus.addr)
+        core.io.dbus.valid && core.io.dbus.write && dbusInDtcm, core.io.dbus.addr)
     dtcmArbiter.io.source(0).writeDataBits := core.io.dbus.wdata
     dtcmArbiter.io.source(0).writeDataStrb := core.io.dbus.wmask
-    core.io.dbus.rdata := dtcmArbiter.io.source(0).readData.bits
     core.io.dbus.ready := true.B  // Can always read/write TCM
 
     // Connect TCMs and CSR into fabric
@@ -208,9 +216,63 @@ class CoreAxi(p: Parameters, coreModuleName: String) extends RawModule {
     fabricMux.io.ports(2) <> csr.io.fabric
     fabricMux.io.periBusy(2) := false.B
 
-    
+
       itcmArbiter.io.source(2) <> dm.io.itcm
       dtcmArbiter.io.source(2) <> dm.io.dtcm
+
+    if (p.enableGemma) {
+      val gmvRegion = memoryRegions(3)
+      val wtcmRegion = memoryRegions(4)
+      val wtcmSizeBytes = 1024L * p.wtcmSizeKBytes
+
+      val weightMem = Module(new WeightMem(p, wtcmSizeBytes, p.gemmaRowBits))
+      val mvu = Module(new MatVecUnit(p, weightMem.rowCount, p.gemmaRowBits,
+                                      p.gemmaMaxCols))
+      mvu.io.wide <> weightMem.io.wide
+
+      val dbusInGmv = gmvRegion.contains(core.io.dbus.addr)
+      val dbusInWtcm = wtcmRegion.contains(core.io.dbus.addr)
+
+      // Matrix-vector CSRs: core dbus (priority) and AXI slave.
+      val gmvArbiter = Module(new FabricArbiter(p, 2))
+      gmvArbiter.io.port <> mvu.io.csr
+      gmvArbiter.io.source(0).readDataAddr := MakeValid(
+          core.io.dbus.valid && !core.io.dbus.write && dbusInGmv, core.io.dbus.addr)
+      gmvArbiter.io.source(0).writeDataAddr := MakeValid(
+          core.io.dbus.valid && core.io.dbus.write && dbusInGmv, core.io.dbus.addr)
+      gmvArbiter.io.source(0).writeDataBits := core.io.dbus.wdata
+      gmvArbiter.io.source(0).writeDataStrb := core.io.dbus.wmask
+      gmvArbiter.io.source(1) <> fabricMux.io.ports(3)
+      fabricMux.io.periBusy(3) := gmvArbiter.io.fabricBusy(1)
+
+      // Weight TCM: core dbus (priority) and AXI slave share the 128-bit
+      // fabric port; the engine reads full rows on the wide port.
+      val wtcmArbiter = Module(new FabricArbiter(p, 2))
+      wtcmArbiter.io.port <> weightMem.io.fabric
+      wtcmArbiter.io.source(0).readDataAddr := MakeValid(
+          core.io.dbus.valid && !core.io.dbus.write && dbusInWtcm, core.io.dbus.addr)
+      wtcmArbiter.io.source(0).writeDataAddr := MakeValid(
+          core.io.dbus.valid && core.io.dbus.write && dbusInWtcm, core.io.dbus.addr)
+      wtcmArbiter.io.source(0).writeDataBits := core.io.dbus.wdata
+      wtcmArbiter.io.source(0).writeDataStrb := core.io.dbus.wmask
+      wtcmArbiter.io.source(1) <> fabricMux.io.ports(4)
+      fabricMux.io.periBusy(4) := wtcmArbiter.io.fabricBusy(1)
+
+      // Engine DTCM master port (lowest priority).
+      dtcmArbiter.io.source(3) <> mvu.io.dtcm
+      mvu.io.dtcmBusy := dtcmArbiter.io.fabricBusy(3)
+
+      // dbus read data: route from whichever DMEM region was read last cycle.
+      val dbusReadFired = core.io.dbus.valid && !core.io.dbus.write
+      val dbusGmvReg = RegNext(dbusReadFired && dbusInGmv, false.B)
+      val dbusWtcmReg = RegNext(dbusReadFired && dbusInWtcm, false.B)
+      core.io.dbus.rdata := MuxCase(dtcmArbiter.io.source(0).readData.bits, Seq(
+          dbusGmvReg -> gmvArbiter.io.source(0).readData.bits,
+          dbusWtcmReg -> wtcmArbiter.io.source(0).readData.bits,
+      ))
+    } else {
+      core.io.dbus.rdata := dtcmArbiter.io.source(0).readData.bits
+    }
 
     // Create AXI Slave interface and connect internal fabric to AXI
     val axiSlave = Module(new AxiSlave(p))

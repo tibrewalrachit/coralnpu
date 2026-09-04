@@ -356,6 +356,7 @@ chisel_library(
         "CoreAxiCSR.scala",
         "CoreTlul.scala",
         "Fabric.scala",
+        "Gemma.scala",
         "SRAM.scala",
         "TCM.scala",
     ],
@@ -502,6 +503,34 @@ chisel_cc_library(
         "--dtcmSizeKBytes=1024",
     ],
     module_name = "CoreMiniHighmemAxi",
+    vopts = CORE_MINI_AXI_VOPTS,
+)
+
+# Gemma configuration: CoreMini + weight TCM + matrix-vector engine.
+# The checked-in simulation target uses an 8MB WTCM to keep Verilator
+# builds tractable; a full Gemma-3-270M build passes
+# --wtcmSizeKBytes=393216 (384MB). See doc/gemma.md.
+chisel_cc_library(
+    name = "core_mini_gemma_axi_cc_library",
+    chisel_lib = ":coralnpu",
+    emit_class = "coralnpu.EmitCore",
+    extra_outs = [
+        "VCoreMiniGemmaAxi_parameters.h",
+        "CoreMiniGemmaAxi.zip",
+    ],
+    gen_flags = [
+        "--enableFetchL0=False",
+        "--fetchDataBits=128",
+        "--lsuDataBits=128",
+        "--enableFloat=True",
+        "--moduleName=CoreMini",
+        "--useAxi",
+        "--itcmSizeKBytes=1024",
+        "--dtcmSizeKBytes=1024",
+        "--enableGemma=True",
+        "--wtcmSizeKBytes=8192",
+    ],
+    module_name = "CoreMiniGemmaAxi",
     vopts = CORE_MINI_AXI_VOPTS,
 )
 

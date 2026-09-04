@@ -77,6 +77,14 @@ verilator_cocotb_model(
     verilog_source = "//hdl/chisel/src/coralnpu:RvvCoreMini_ITCM512KB_DTCM512KBAxi.sv",
 )
 
+verilator_cocotb_model(
+    name = "core_mini_gemma_axi_model",
+    trace = False,
+    cflags = VERILATOR_BUILD_ARGS,
+    hdl_toplevel = "CoreMiniGemmaAxi",
+    verilog_source = "//hdl/chisel/src/coralnpu:CoreMiniGemmaAxi.sv",
+)
+
 # BEGIN_TESTCASES_FOR_core_mini_axi_sim_cocotb
 CORE_MINI_AXI_SIM_TESTCASES = [
     ("core_mini_axi_basic_write_read_memory", "large"),
@@ -436,6 +444,52 @@ cocotb_test_suite(
         "size": "large",
     },
     verilator_model = ":rvv_core_mini_highmem_axi_model",
+)
+
+# BEGIN_TESTCASES_FOR_gemma_tests
+GEMMA_TESTCASES = [
+    "gemma_wtcm_write_read",
+    "gemma_matvec_int8",
+    "gemma_matvec_argmax",
+    "gemma_matvec_strided",
+    "gemma_matvec_back_to_back",
+    ("gemma_tiny_forward", "enormous"),
+]
+# END_TESTCASES_FOR_gemma_tests
+
+cocotb_test_suite(
+    name = "gemma_tests",
+    simulators = [
+        "verilator",
+    ],
+    testcases = GEMMA_TESTCASES,
+    testcases_vname = "GEMMA_TESTCASES",
+    tests_kwargs = {
+        "hdl_toplevel": "CoreMiniGemmaAxi",
+        "waves": False,
+        "seed": "42",
+        "test_module": [
+            "//tests/cocotb/gemma:gemma_engine_sim.py",
+            "//tests/cocotb/gemma:gemma_forward_sim.py",
+        ],
+        "deps": [
+            "//coralnpu_test_utils:core_mini_axi_sim_interface",
+            "//coralnpu_test_utils:sim_test_fixture",
+            "//tests/cocotb/gemma:gemma_common",
+            requirement("tqdm"),
+            "@bazel_tools//tools/python/runfiles",
+        ],
+        "data": [
+            "//tests/cocotb/gemma:gemma_forward_test.elf",
+            "//tests/cocotb/gemma:tiny_model",
+        ],
+        "extra_env": [
+            "GEMMA_TINY_DIR=tests/cocotb/gemma/tiny_model",
+            "GEMMA_FORWARD_ELF=tests/cocotb/gemma/gemma_forward_test.elf",
+        ],
+        "size": "large",
+    },
+    verilator_model = ":core_mini_gemma_axi_model",
 )
 
 cocotb_test_suite(

@@ -21,6 +21,12 @@ import random
 
 from cocotb.clock import Clock
 from cocotb.handle import LogicObject, LogicArrayObject, Immediate
+
+try:
+  # Newer Verilator/VPI combinations expose wide pins as packed arrays.
+  from cocotb.handle import PackedObject
+except ImportError:
+  PackedObject = ()
 from cocotb.queue import Queue
 from cocotb.triggers import Timer, ClockCycles, RisingEdge, FallingEdge
 from elftools.elf.elffile import ELFFile
@@ -107,7 +113,7 @@ def convert_to_binary_value(data):
 def set_x(signal):
   if isinstance(signal, LogicObject):
     signal.value = "X"
-  elif isinstance(signal, LogicArrayObject):
+  elif isinstance(signal, (LogicArrayObject, PackedObject)):
     signal.value = "X" * len(signal.range)
   else:
     raise TypeError(f"Unsupported signal type for set_x: {type(signal)}")
