@@ -93,7 +93,57 @@ int gemma_init(GemmaModel* m) {
 
 // -----------------------------------------------------------------------------
 // Scalar math helpers (float32, matching the numpy reference)
+//
+// Decode correctness is checked token-exact against the numpy reference in
+// utils/gemma_pack.py, which requires bit-identical float32 arithmetic on
+// both sides. libm implementations differ between toolchains (and FMA
+// contraction changes results), so the transcendental functions used on the
+// decode path are implemented here with plain IEEE float32 mul/add/div and
+// mirrored operation-for-operation in the reference (_gm_* functions).
+// Compile this file with -ffp-contract=off.
 // -----------------------------------------------------------------------------
+
+// exp(x) = 2^n * P(r), n = floor(x*log2e + 0.5), r = x - n*ln2 (two-part).
+static float gm_expf(float x) {
+  if (x > 88.0f) x = 88.0f;
+  if (x < -87.0f) return 0.0f;
+  float t = x * 1.4426950216293335f + 0.5f;  // x*log2e + 0.5
+  int32_t n = (int32_t)t;
+  if ((float)n > t) n--;  // floor for negative t
+  float fn = (float)n;
+  float r = x - fn * 0.69314718246459961f;
+  r = r - fn * -1.9046542121259336e-09f;
+  float p = 1.0f + r * (1.0f + r * (0.5f + r * (0.1666666716337204f +
+            r * (0.041666667908430099f + r * 0.0083333337679505348f))));
+  union { float f; uint32_t u; } s;
+  s.u = (uint32_t)(127 + n) << 23;
+  return p * s.f;
+}
+
+static float gm_tanhf(float z) {
+  float az = fabsf(z);
+  float e = gm_expf(-2.0f * az);
+  float t = (1.0f - e) / (1.0f + e);
+  return z < 0.0f ? -t : t;
+}
+
+// sin/cos for ang >= 0 via quadrant reduction with a two-part pi/2.
+static void gm_sincos(float ang, float* s, float* c) {
+  int32_t k = (int32_t)(ang * 0.63661974668502808f + 0.5f);
+  float fk = (float)k;
+  float r = (ang - fk * 1.5707963705062866f) - fk * -4.3711388286737929e-08f;
+  float r2 = r * r;
+  float sr = r + r * (r2 * (-0.1666666716337204f + r2 *
+             (0.0083333337679505348f + r2 * -0.00019841270113829523f)));
+  float cr = 1.0f + r2 * (-0.5f + r2 * (0.041666667908430099f +
+             r2 * -0.0013888889225199819f));
+  switch (k & 3) {
+    case 0: *s = sr;  *c = cr;  break;
+    case 1: *s = cr;  *c = -sr; break;
+    case 2: *s = -sr; *c = -cr; break;
+    default: *s = -cr; *c = sr; break;
+  }
+}
 static void rms_norm(float* dst, const float* src, const float* gamma,
                      uint32_t n, float eps) {
   float ms = 0.0f;
@@ -130,13 +180,14 @@ static void dequant_rows(float* dst, const int32_t* acc, const float* row_s,
   for (uint32_t i = 0; i < n; ++i) dst[i] = (float)acc[i] * row_s[i] * sx;
 }
 
-static void rope(float* v, uint32_t d, uint32_t pos, float theta) {
+static void rope(float* v, uint32_t d, uint32_t pos, float log_theta) {
   uint32_t half = d / 2;
-  float log_theta = logf(theta);
   for (uint32_t i = 0; i < half; ++i) {
-    float freq = expf(-log_theta * (float)(2 * i) / (float)d);
+    float t = (float)(2 * i) / (float)d;
+    float freq = gm_expf(-log_theta * t);
     float ang = (float)pos * freq;
-    float c = cosf(ang), s = sinf(ang);
+    float c, s;
+    gm_sincos(ang, &s, &c);
     float x1 = v[i], x2 = v[i + half];
     v[i] = x1 * c - x2 * s;
     v[i + half] = x2 * c + x1 * s;
@@ -145,7 +196,7 @@ static void rope(float* v, uint32_t d, uint32_t pos, float theta) {
 
 static float gelu_tanh(float x) {
   return 0.5f * x *
-         (1.0f + tanhf(0.7978845608028654f * (x + 0.044715f * x * x * x)));
+         (1.0f + gm_tanhf(0.7978845608028654f * (x + 0.044715f * x * x * x)));
 }
 
 // -----------------------------------------------------------------------------
@@ -193,7 +244,8 @@ uint32_t gemma_decode(GemmaModel* m, uint32_t token, float* hidden_out) {
   for (uint32_t l = 0; l < h->layers; ++l) {
     const GemmaLayerOffsets* lo = &m->layer[l];
     int is_global = ((l + 1) % h->global_period) == 0;
-    float theta = is_global ? h->rope_theta_global : h->rope_theta_local;
+    float log_theta =
+        is_global ? h->rope_log_theta_global : h->rope_log_theta_local;
 
     // --- Attention block ---
     rms_norm(g_h, g_x, wf(lo->ln1), hidden, h->rms_eps);
@@ -204,7 +256,7 @@ uint32_t gemma_decode(GemmaModel* m, uint32_t token, float* hidden_out) {
 
     // K: QK-norm + RoPE, then quantize into the K cache (kv_heads == 1).
     rms_norm(g_h2, g_h2, wf(lo->k_norm), h->head_dim, h->rms_eps);
-    rope(g_h2, h->head_dim, pos, theta);
+    rope(g_h2, h->head_dim, pos, log_theta);
     {
       volatile int8_t* krow =
           (volatile int8_t*)(GEMMA_WTCM_BASE + lo->kcache +
@@ -229,7 +281,7 @@ uint32_t gemma_decode(GemmaModel* m, uint32_t token, float* hidden_out) {
     for (uint32_t hd = 0; hd < h->heads; ++hd) {
       float* qh = &g_q[hd * h->head_dim];
       rms_norm(qh, qh, wf(lo->q_norm), h->head_dim, h->rms_eps);
-      rope(qh, h->head_dim, pos, theta);
+      rope(qh, h->head_dim, pos, log_theta);
       for (uint32_t i = 0; i < h->head_dim; ++i) qh[i] *= h->query_scale;
       float sq = dyn_quant(g_xq, qh, h->head_dim);
 
@@ -245,7 +297,7 @@ uint32_t gemma_decode(GemmaModel* m, uint32_t token, float* hidden_out) {
       }
       float sum = 0.0f;
       for (uint32_t t = 0; t < rows; ++t) {
-        g_scores[t] = expf(g_scores[t] - smax);
+        g_scores[t] = gm_expf(g_scores[t] - smax);
         sum += g_scores[t];
       }
       float norm = 127.0f / sum;

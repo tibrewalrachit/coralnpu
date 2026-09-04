@@ -131,13 +131,21 @@ def build_layout(c: GemmaConfig):
   return off, pos
 
 
+def log_theta32(theta):
+  """float32 log(theta): the value stored in the header and used by both
+  the C runtime and the reference for RoPE frequencies."""
+  return np.float32(np.log(np.float64(theta)))
+
+
 def pack_header(c: GemmaConfig):
   h = struct.pack(
-      "<12I7f",
+      "<12I9f",
       GEMMA_MAGIC, 1, c.hidden, c.layers, c.heads, c.kv_heads, c.head_dim,
       c.intermediate, c.vocab, c.max_ctx, c.window, c.global_period,
       c.rope_theta_global, c.rope_theta_local, 0.0,  # emb scale patched below
-      c.k_scale, c.v_scale, c.rms_eps, c.query_scale)
+      c.k_scale, c.v_scale, c.rms_eps, c.query_scale,
+      float(log_theta32(c.rope_theta_global)),
+      float(log_theta32(c.rope_theta_local)))
   return h + b"\x00" * (HEADER_BYTES - len(h))
 
 
@@ -200,12 +208,63 @@ def pack_model(c: GemmaConfig, tensors):
 # =============================================================================
 # Reference model: mirrors the C runtime (sw/gemma/gemma_model.c) step by
 # step, including engine-exact int32 matvecs and quantization points.
+#
+# Token-exact agreement with the on-core runtime requires bit-identical
+# float32 arithmetic, so the transcendental functions below (_gm_*) are
+# element-wise float32 mirrors of the gm_* implementations in
+# sw/gemma/gemma_model.c — same constants, same operation order, no FMA.
 # =============================================================================
+_F = np.float32
+
+
+def _gm_expf(x):
+  x = np.minimum(np.asarray(x, _F), _F(88.0))
+  lo = x < _F(-87.0)
+  t = x * _F(1.4426950216293335) + _F(0.5)
+  n = np.floor(t).astype(np.int32)
+  fn = n.astype(_F)
+  r = x - fn * _F(0.69314718246459961)
+  r = r - fn * _F(-1.9046542121259336e-09)
+  p = _F(1.0) + r * (_F(1.0) + r * (_F(0.5) + r * (_F(0.1666666716337204) +
+      r * (_F(0.041666667908430099) + r * _F(0.0083333337679505348)))))
+  scale = np.ldexp(_F(1.0), n)
+  return np.where(lo, _F(0.0), (p * scale).astype(_F)).astype(_F)
+
+
+def _gm_tanhf(z):
+  z = np.asarray(z, _F)
+  az = np.abs(z)
+  e = _gm_expf(_F(-2.0) * az)
+  t = (_F(1.0) - e) / (_F(1.0) + e)
+  return np.where(z < _F(0.0), -t, t).astype(_F)
+
+
+def _gm_sincos(ang):
+  """ang >= 0, element-wise; returns (sin, cos)."""
+  ang = np.asarray(ang, _F)
+  k = np.floor(ang * _F(0.63661974668502808) + _F(0.5)).astype(np.int32)
+  fk = k.astype(_F)
+  r = (ang - fk * _F(1.5707963705062866)) - fk * _F(-4.3711388286737929e-08)
+  r2 = r * r
+  sr = r + r * (r2 * (_F(-0.1666666716337204) + r2 *
+       (_F(0.0083333337679505348) + r2 * _F(-0.00019841270113829523))))
+  cr = _F(1.0) + r2 * (_F(-0.5) + r2 * (_F(0.041666667908430099) +
+       r2 * _F(-0.0013888889225199819)))
+  q = k & 3
+  sin = np.select([q == 0, q == 1, q == 2], [sr, cr, -sr], default=-cr)
+  cos = np.select([q == 0, q == 1, q == 2], [cr, -sr, -cr], default=sr)
+  return sin.astype(_F), cos.astype(_F)
+def _seq_sum(x):
+  """Sequential left-to-right float32 sum, mirroring a C accumulation loop
+  (numpy's sum() is pairwise and rounds differently)."""
+  return np.add.accumulate(x.astype(_F), dtype=_F)[-1]
+
+
 def _rmsnorm(x, gamma, eps):
-  x = x.astype(np.float32)
-  ms = np.mean(x * x, dtype=np.float32) + np.float32(eps)
-  inv = np.float32(1.0) / np.float32(np.sqrt(ms))
-  return x * inv * (np.float32(1.0) + gamma.astype(np.float32))
+  x = x.astype(_F)
+  ms = _seq_sum(x * x) / _F(x.shape[-1]) + _F(eps)
+  inv = _F(1.0) / _F(np.sqrt(ms))
+  return x * inv * (_F(1.0) + gamma.astype(_F))
 
 
 def _quant_inv(x, inv):
@@ -225,24 +284,22 @@ def _matvec_i32(wq, xq):
   return wq.astype(np.int32) @ xq.astype(np.int32)
 
 
-def _rope(v, pos, theta):
+def _rope(v, pos, log_theta):
   d = v.shape[-1]
   half = d // 2
-  # Mirrors the C runtime: freq = expf(-logf(theta) * 2i / d), float32.
-  log_theta = np.float32(np.log(np.float32(theta)))
-  inv_freq = np.exp(
-      (-log_theta * (2 * np.arange(half, dtype=np.float32)) /
-       np.float32(d)).astype(np.float32))
-  ang = (np.float32(pos) * inv_freq).astype(np.float32)
-  cos, sin = np.cos(ang).astype(np.float32), np.sin(ang).astype(np.float32)
-  x1, x2 = v[:half].astype(np.float32), v[half:].astype(np.float32)
+  # Mirrors the C runtime: t = 2i/d; freq = gm_expf(-log_theta * t).
+  t = (2 * np.arange(half, dtype=_F)).astype(_F) / _F(d)
+  inv_freq = _gm_expf(-_F(log_theta) * t)
+  ang = (_F(pos) * inv_freq).astype(_F)
+  sin, cos = _gm_sincos(ang)
+  x1, x2 = v[:half].astype(_F), v[half:].astype(_F)
   return np.concatenate([x1 * cos - x2 * sin, x2 * cos + x1 * sin])
 
 
 def _gelu_tanh(x):
-  x = x.astype(np.float32)
-  return 0.5 * x * (1.0 + np.tanh(
-      np.float32(0.7978845608028654) * (x + np.float32(0.044715) * x * x * x)))
+  x = x.astype(_F)
+  return (_F(0.5) * x * (_F(1.0) + _gm_tanhf(
+      _F(0.7978845608028654) * (x + _F(0.044715) * x * x * x)))).astype(_F)
 
 
 class ReferenceModel:
@@ -272,7 +329,8 @@ class ReferenceModel:
     x = embq[token].astype(np.float32) * (
         self.emb_scale * np.float32(np.sqrt(np.float32(c.hidden))))
     for l in range(c.layers):
-      theta = c.rope_theta_global if c.is_global(l) else c.rope_theta_local
+      theta = log_theta32(
+          c.rope_theta_global if c.is_global(l) else c.rope_theta_local)
       resid = x
       h = _rmsnorm(x, t[f"l{l}.ln1"], c.rms_eps)
       hq, sh = _dyn_quant(h)
@@ -282,8 +340,8 @@ class ReferenceModel:
       # QK-norm + RoPE (kv_heads == 1).
       kh = _rmsnorm(kv, t[f"l{l}.k_norm"], c.rms_eps)
       kh = _rope(kh, pos, theta)
-      self.kcache[l][pos] = _quant_inv(kh, 1.0 / np.float32(c.k_scale))
-      self.vcache[l][pos] = _quant_inv(vv, 1.0 / np.float32(c.v_scale))
+      self.kcache[l][pos] = _quant_inv(kh, _F(1.0) / _F(c.k_scale))
+      self.vcache[l][pos] = _quant_inv(vv, _F(1.0) / _F(c.v_scale))
       seqlen = pos + 1
       start = 0 if c.is_global(l) else max(0, seqlen - c.window)
       attn = np.zeros(c.qdim, np.float32)
@@ -296,13 +354,13 @@ class ReferenceModel:
         s32 = _matvec_i32(self.kcache[l][start:seqlen], qhq)
         scores = s32.astype(np.float32) * sq * np.float32(c.k_scale)
         m = scores.max()
-        e = np.exp((scores - m).astype(np.float32)).astype(np.float32)
-        norm = np.float32(127.0) / e.sum(dtype=np.float32)
+        e = _gm_expf((scores - m).astype(np.float32))
+        norm = _F(127.0) / _seq_sum(e)
         pq = _quant_inv(e, norm)
         av32 = _matvec_i32(self.vcache[l][start:seqlen].T, pq)
+        vs = (_F(1.0) / _F(127.0)) * _F(c.v_scale)  # matches C: one factor
         attn[hd * c.head_dim:(hd + 1) * c.head_dim] = (
-            av32.astype(np.float32) * np.float32(1.0 / 127) *
-            np.float32(c.v_scale))
+            av32.astype(np.float32) * vs)
       aq, sa = _dyn_quant(attn)
       o = self._proj(f"l{l}.o", aq, sa)
       o = _rmsnorm(o, t[f"l{l}.post_attn_ln"], c.rms_eps)

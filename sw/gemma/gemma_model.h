@@ -64,6 +64,10 @@ typedef struct {
   float v_scale;
   float rms_eps;
   float query_scale;
+  // log(theta), precomputed by the packer so the runtime and the numpy
+  // reference use exactly the same float32 value.
+  float rope_log_theta_global;
+  float rope_log_theta_local;
 } GemmaHeader;
 
 // Byte offsets (from GEMMA_WTCM_BASE) of one layer's tensors. For matrices,

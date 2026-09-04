@@ -23,5 +23,9 @@ cc_library(
         "gemma_mmio.h",
         "gemma_model.h",
     ],
+    # Decode correctness is verified token-exact against the numpy
+    # reference in utils/gemma_pack.py, which requires bit-identical
+    # float32 arithmetic — FMA contraction changes rounding.
+    copts = ["-ffp-contract=off"],
     target_compatible_with = ["//platforms/cpu:coralnpu_v2"],
 )
