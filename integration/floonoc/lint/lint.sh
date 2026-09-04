@@ -57,20 +57,28 @@ sed -i 's/\.credit_init_i    ( 1.b0                      ),/.clr_i            ( 
   echo "$WORK/axi/src/axi_pkg.sv"
   echo "$WORK/floonoc/hw/floo_pkg.sv"
   echo "$FLOO_DIR/generated/floo_coralnpu_mesh_noc_pkg.sv"
+  echo "$FLOO_DIR/generated/floo_coralnpu_snitch_mesh_noc_pkg.sv"
+  echo "$FLOO_DIR/rtl/snitch_floo_hub_pkg.sv"
   ls "$WORK"/common_cells/src/*.sv "$WORK"/common_cells/src/deprecated/*.sv | grep -v "_pkg\|_test\|assert"
   ls "$WORK"/axi/src/*.sv | grep -v "axi_pkg\|_test\|_intf\|dumper"
   ls "$WORK"/floonoc/hw/*.sv | grep -v floo_pkg
   echo "$FLOO_DIR/generated/floo_coralnpu_mesh_noc.sv"
+  echo "$FLOO_DIR/generated/floo_coralnpu_snitch_mesh_noc.sv"
   echo "$SCRIPT_DIR/CoreMiniAxi_stub.sv"
+  echo "$SCRIPT_DIR/snitch_cluster_wrapper_stub.sv"
   echo "$FLOO_DIR/rtl/coralnpu_floo_tile.sv"
   echo "$FLOO_DIR/rtl/coralnpu_floo_mesh.sv"
+  echo "$FLOO_DIR/rtl/axi_resize_adapter.sv"
+  echo "$FLOO_DIR/rtl/snitch_floo_hub.sv"
+  echo "$FLOO_DIR/rtl/coralnpu_snitch_mesh.sv"
 } | awk '!seen[$0]++' > "$WORK/files.f"
 
-verilator --lint-only -Wno-fatal -Wno-lint -Wno-style \
-  "+incdir+$WORK/axi/include" \
-  "+incdir+$WORK/common_cells/include" \
-  "+incdir+$WORK/floonoc/hw/include" \
-  -f "$WORK/files.f" \
-  --top coralnpu_floo_mesh
-
-echo "Lint passed."
+for top in coralnpu_floo_mesh coralnpu_snitch_mesh; do
+  verilator --lint-only -Wno-fatal -Wno-lint -Wno-style \
+    "+incdir+$WORK/axi/include" \
+    "+incdir+$WORK/common_cells/include" \
+    "+incdir+$WORK/floonoc/hw/include" \
+    -f "$WORK/files.f" \
+    --top "$top"
+  echo "Lint passed: $top"
+done

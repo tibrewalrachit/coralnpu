@@ -19,15 +19,17 @@
 # (commit 8a67b860490b3b6b82289c281f5324b287572c8a).
 
 FLOOGEN     ?= floogen
-CONFIG      ?= floogen/coralnpu_mesh_2x2.yml
+CONFIGS     ?= floogen/coralnpu_mesh_2x2.yml floogen/coralnpu_snitch_mesh_3x3.yml
 GENERATED   := generated
 
 .PHONY: all noc-rtl clean
 
 all: noc-rtl
 
-noc-rtl: $(CONFIG)
-	$(FLOOGEN) rtl -c $(CONFIG) -o $(GENERATED) --no-format
+noc-rtl: $(CONFIGS)
+	for cfg in $(CONFIGS); do \
+	  $(FLOOGEN) rtl -c $$cfg -o $(GENERATED) --no-format; \
+	done
 
 clean:
 	rm -f $(GENERATED)/*.sv

@@ -25,11 +25,15 @@
 // tile at a distinct 256 KiB system window. Incoming subordinate addresses
 // are therefore masked down to the local window with `LocalAddrMask`.
 
-module coralnpu_floo_tile
-  import floo_coralnpu_mesh_noc_pkg::*;
-#(
+module coralnpu_floo_tile #(
   // Coral NPU local window: ITCM/DTCM/CSR all live below 256 KiB.
-  parameter logic [31:0] LocalAddrMask = 32'h0003_FFFF
+  parameter logic [31:0] LocalAddrMask = 32'h0003_FFFF,
+  // AXI struct types from the FlooGen-generated package of the mesh this
+  // tile is instantiated in (both meshes use identical protocol widths).
+  parameter type axi_in_req_t  = floo_coralnpu_mesh_noc_pkg::axi_in_req_t,
+  parameter type axi_in_rsp_t  = floo_coralnpu_mesh_noc_pkg::axi_in_rsp_t,
+  parameter type axi_out_req_t = floo_coralnpu_mesh_noc_pkg::axi_out_req_t,
+  parameter type axi_out_rsp_t = floo_coralnpu_mesh_noc_pkg::axi_out_rsp_t
 ) (
   input  logic         clk_i,
   input  logic         rst_ni,

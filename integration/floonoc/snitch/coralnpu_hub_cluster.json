@@ -1,0 +1,161 @@
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Snitch cluster configuration for the Coral NPU mesh hub
+// (rtl/snitch_floo_hub.sv). Derived from snitch_cluster's cfg/default.json:
+// 8 compute cores + 1 DMA core, with the TCDM enlarged to 512 KiB and the
+// cluster rebased to the mesh hub window at 0x2000_0000 (see
+// floogen/coralnpu_snitch_mesh_3x3.yml).
+//
+// Generate the RTL from a snitch_cluster checkout with this file as the
+// clustergen configuration (see README.md). If any of the AXI interface
+// widths change (addr/data/id/user), update snitch_floo_hub_pkg.sv to match.
+{
+    cluster: {
+        cluster_base_addr: 0x20000000,
+        cluster_base_offset: 0,
+        cluster_base_hartid: 0,
+        addr_width: 48,
+        data_width: 64,
+        atomic_id_width: 5,
+        tcdm: {
+            size: 512, // kB — "large SRAM" hub scratchpad
+            banks: 64,
+        },
+        cluster_periph_size: 60, // kB
+        zero_mem_size: 64, // kB
+        // Keep the 32-bit mesh address map simple: no alias region.
+        alias_region_enable: false,
+        dma_data_width: 512,
+        dma_axi_req_fifo_depth: 24,
+        dma_req_fifo_depth: 8,
+        narrow_trans: 4,
+        wide_trans: 32,
+        enable_debug: false,
+        vm_support: false,
+        sram_cfg_expose: true,
+        sram_cfg_fields: {
+            ema: 3,
+            emaw: 2,
+            emas: 1
+        },
+        timing: {
+            lat_comp_fp32: 2,
+            lat_comp_fp64: 3,
+            lat_comp_fp16: 1,
+            lat_comp_fp16_alt: 1,
+            lat_comp_fp8: 1,
+            lat_comp_fp8_alt: 1,
+            lat_noncomp: 1,
+            lat_conv: 2,
+            lat_sdotp: 3,
+            fpu_pipe_config: "BEFORE",
+            narrow_xbar_latency: "CUT_ALL_PORTS",
+            wide_xbar_latency: "CUT_ALL_PORTS",
+            register_core_req: true,
+            register_core_rsp: true,
+            register_offload_req: true,
+            register_offload_rsp: true,
+            register_fpu_req: true,
+            register_ext_narrow: false,
+            register_ext_wide: false
+        },
+        hives: [
+            // Hive 0
+            {
+                icache: {
+                    size: 16, // total instruction cache size in kByte
+                    ways: 2, // number of ways
+                    cacheline: 512 // word size in bits
+                },
+                cores: [
+                    { $ref: "#/compute_core_template" },
+                    { $ref: "#/compute_core_template" },
+                    { $ref: "#/compute_core_template" },
+                    { $ref: "#/compute_core_template" },
+                    { $ref: "#/compute_core_template" },
+                    { $ref: "#/compute_core_template" },
+                    { $ref: "#/compute_core_template" },
+                    { $ref: "#/compute_core_template" },
+                    { $ref: "#/dma_core_template" },
+                ]
+            }
+        ]
+    },
+    external_addr_regions: [
+        {
+            // Shared mesh memory (mem endpoint) — cacheable working set.
+            name: "dram",
+            address: 0x80000000,
+            length: 0x1000000,
+            cacheable: true
+        },
+        {
+            // Coral NPU tile windows (ITCM/DTCM/CSR) — uncached MMIO-style.
+            name: "coral_tiles",
+            address: 0x10000000,
+            length: 0x280000
+        },
+    ],
+    // Templates.
+    compute_core_template: {
+        isa: "rv32imafd",
+        Xdiv_sqrt: true,
+        xssr: true,
+        xfrep: true,
+        xcopift: true,
+        xdma: false,
+        zfh: true,
+        xf16alt: true,
+        xf8: true,
+        xf8alt: true,
+        xfdotp: true,
+        xfvec: true,
+        ssr_nr_credits: 4,
+        num_int_outstanding_loads: 4,
+        num_int_outstanding_mem: 4,
+        num_fp_outstanding_loads: 4,
+        num_fp_outstanding_mem: 4,
+        num_sequencer_instructions: 32,
+        num_sequencer_loops: 2,
+        num_dtlb_entries: 1,
+        num_itlb_entries: 1,
+        ssr_intersection: true,
+        ssr_intersection_triple: [0, 1, 2],
+        ssrs: [
+            {indirection: true},    // Master 0
+            {indirection: true},    // Master 1
+            {},                     // Slave
+        ],
+    },
+    dma_core_template: {
+        isa: "rv32imafd",
+        xdma: true,
+        xssr: false,
+        xfrep: false,
+        xcopift: false,
+        zfh: false,
+        xf16alt: false,
+        xf8: false,
+        xf8alt: false,
+        xfdotp: false,
+        xfvec: false,
+        num_int_outstanding_loads: 4,
+        num_int_outstanding_mem: 4,
+        num_fp_outstanding_loads: 4,
+        num_fp_outstanding_mem: 4,
+        num_dtlb_entries: 1,
+        num_itlb_entries: 1,
+    }
+}

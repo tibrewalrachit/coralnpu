@@ -1,0 +1,163 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# FlooGen configuration: 3x3 mesh with 8 Coral NPU tiles around a central
+# Snitch cluster hub (large RISC-V compute cluster with a big TCDM SRAM,
+# https://github.com/pulp-platform/snitch_cluster).
+#
+#   y=2  [coral_w 0,2]--[R 0,2]---[R 1,2]---[R 2,2]--[coral_e 0,2]
+#                                    | coral_n
+#   y=1  [coral_w 0,1]--[R 0,1]---[R 1,1]---[R 2,1]--[coral_e 0,1]
+#             host (W) -/            | snitch          \- mem (E)
+#   y=0  [coral_w 0,0]--[R 0,0]---[R 1,0]---[R 2,0]--[coral_e 0,0]
+#                                    | coral_s
+#
+# (coral_n / coral_s / snitch sit on the Eject ports of the middle column;
+# coral_w / coral_e on the Eject ports of the outer columns.)
+#
+# All endpoints share one 128-bit AXI4 protocol pair matched to Coral NPU;
+# the Snitch hub tile adapts its 64-bit narrow / 512-bit wide cluster ports
+# with AXI data-width converters (see rtl/snitch_floo_hub.sv).
+#
+# Address map (32-bit):
+#   0x1000_0000 coral_w tiles (3 x 256 KiB)
+#   0x1010_0000 coral_e tiles (3 x 256 KiB)
+#   0x1020_0000 coral_n tile
+#   0x1024_0000 coral_s tile
+#   0x2000_0000 snitch cluster hub (1 MiB: TCDM SRAM + peripherals)
+#   0x8000_0000 shared memory (16 MiB)
+
+name: coralnpu_snitch_mesh
+description: "3x3 mesh: 8 Coral NPU tiles around a central Snitch cluster"
+network_type: "axi"
+
+routing:
+  route_algo: "XY"
+  use_id_table: true
+
+protocols:
+  - name: "axi_in"
+    type: "narrow"
+    protocol: "AXI4"
+    data_width: 128
+    addr_width: 32
+    id_width: 6
+    user_width: 1
+    type_prefix: # prevents `axi_axi` prefix
+  - name: "axi_out"
+    type: "narrow"
+    protocol: "AXI4"
+    data_width: 128
+    addr_width: 32
+    id_width: 6
+    user_width: 1
+    type_prefix:
+
+endpoints:
+  - name: "coral_w"
+    array: [1, 3]
+    addr_range:
+      base: 0x1000_0000
+      size: 0x0004_0000
+    mgr_port_protocol:
+      - "axi_in"
+    sbr_port_protocol:
+      - "axi_out"
+  - name: "coral_e"
+    array: [1, 3]
+    addr_range:
+      base: 0x1010_0000
+      size: 0x0004_0000
+    mgr_port_protocol:
+      - "axi_in"
+    sbr_port_protocol:
+      - "axi_out"
+  - name: "coral_n"
+    addr_range:
+      base: 0x1020_0000
+      size: 0x0004_0000
+    mgr_port_protocol:
+      - "axi_in"
+    sbr_port_protocol:
+      - "axi_out"
+  - name: "coral_s"
+    addr_range:
+      base: 0x1024_0000
+      size: 0x0004_0000
+    mgr_port_protocol:
+      - "axi_in"
+    sbr_port_protocol:
+      - "axi_out"
+  - name: "snitch"
+    addr_range:
+      base: 0x2000_0000
+      size: 0x0010_0000
+    mgr_port_protocol:
+      - "axi_in"
+    sbr_port_protocol:
+      - "axi_out"
+  - name: "host"
+    mgr_port_protocol:
+      - "axi_in"
+  - name: "mem"
+    addr_range:
+      base: 0x8000_0000
+      size: 0x0100_0000
+    sbr_port_protocol:
+      - "axi_out"
+
+routers:
+  - name: "router"
+    array: [3, 3]
+    degree: 5
+
+connections:
+  - src: "coral_w"
+    dst: "router"
+    src_range:
+    - [0, 0]
+    - [0, 2]
+    dst_range:
+    - [0, 0]
+    - [0, 2]
+    dst_dir: "Eject"
+  - src: "coral_e"
+    dst: "router"
+    src_range:
+    - [0, 0]
+    - [0, 2]
+    dst_range:
+    - [2, 2]
+    - [0, 2]
+    dst_dir: "Eject"
+  - src: "coral_n"
+    dst: "router"
+    dst_idx: [1, 2]
+    dst_dir: "Eject"
+  - src: "coral_s"
+    dst: "router"
+    dst_idx: [1, 0]
+    dst_dir: "Eject"
+  - src: "snitch"
+    dst: "router"
+    dst_idx: [1, 1]
+    dst_dir: "Eject"
+  - src: "host"
+    dst: "router"
+    dst_idx: [0, 1]
+    dst_dir: "West"
+  - src: "mem"
+    dst: "router"
+    dst_idx: [2, 1]
+    dst_dir: "East"
