@@ -134,3 +134,23 @@ FireSim 1.21.0 and this repo's `CoreAxi.scala` / `CoreAxiCSR.scala` /
 
 `firesim managerinit`, both bitstream builds, and the F2 runs need a manager
 instance. Cost plan proposed to the user; waiting for credentials.
+
+## Phase 2 (continued) — local Chipyard toolchain obtained; wrapper elaborates
+
+The user's reply ("aws login when needed, ask for creds") did not unblock AWS
+yet, so the container was used to de-risk the source work instead.
+
+| # | Command | Outcome |
+|---|---|---|
+| 1 | Miniforge (user-space, `~/miniforge3`) + `git clone --branch 1.14.0 chipyard ~/chipyard` + `./build-setup.sh --use-lean-conda --skip-ctags --skip-clean` | OK after ~25 min; 12 GB; provides sbt, firtool, Verilator, riscv64-unknown-elf and riscv64-unknown-linux-gnu toolchains |
+| 2 | `apply-overlay.sh ~/chipyard` | Revealed that `tests/coralnpu.c` and `linux/coralnpu-run.c` were **never written** (a failed `cd` in the authoring shell skipped two heredocs). Recreated and committed (`6393e8d`, `c6a8c35`). |
+| 3 | `make CONFIG=CoralNPURocketConfig verilog` (first attempt) | **FAILED**: `env.sh` sourced without conda on PATH → system Java, sbt crashed. My mistake, not a code problem. |
+| 4 | same, with `source ~/miniforge3/etc/profile.d/conda.sh` first | **OK, exit 0.** Scala compiled with only two deprecation warnings (old `LazyModule` import; fixed). Diplomacy: NPU interrupts 1,2; memory map `60000000-60040000 ARWX coralnpu`, `60040000-60041000 ARW`; DTS node `coralnpu@60040000 { compatible = "google,coralnpu-v2"; interrupts = <1 2>; reg = <0x60040000 0x1000 0x60000000 0x40000>; reg-names = "control", "mem"; }`; firtool emitted `gen-collateral/CoralNPU.sv` instantiating `CoreMiniAxi` with the expected 100+ `io_*` port names. |
+| 5 | `cmake --build tests/build --target coralnpu` | **OK**: `coralnpu.riscv` (36928 B) with the Chipyard rv64 toolchain |
+| 6 | `riscv64-unknown-linux-gnu-gcc -static ... coralnpu-run.c` | **OK**: static rv64 Linux ELF; also clean under host `gcc -Wall -Wextra` |
+| 7 | Real Coral SV without bazel: `git clone` cvfpu/common_cells/fpu_div_sqrt_mvp at the pinned SHAs (git works where archive downloads are 403), applied the 3 `third_party/cvfpu` patches, resource root mirroring bazel's `external/...` + `hdl/...` layout, sbt project with Chisel 7.0.0-RC1 from Maven, `runMain coralnpu.EmitCore --useAxi ...` | **in progress** (background) |
+
+### CHECKPOINT (Phase 2, second pass)
+- **Works:** wrapper compiles and elaborates on a Rocket host; DTS/memory map/interrupts as designed; bare-metal test and Linux loader compile.
+- **Doesn't work yet:** nothing simulated; Coral SV not yet generated.
+- **Blocking:** Verilator run needs the Coral SV (sbt route running). Everything else still needs the manager instance.

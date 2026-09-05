@@ -16,7 +16,8 @@ package chipyard.example
 import chisel3._
 import chisel3.util._
 import freechips.rocketchip.amba.axi4._
-import freechips.rocketchip.diplomacy._
+import freechips.rocketchip.diplomacy.{AddressSet, BufferParams, IdRange, RegionType, TransferSizes}
+import org.chipsalliance.diplomacy.lazymodule.{LazyModule, LazyModuleImp}
 import freechips.rocketchip.interrupts._
 import freechips.rocketchip.regmapper.{RegField, RegFieldDesc}
 import freechips.rocketchip.resources.SimpleDevice

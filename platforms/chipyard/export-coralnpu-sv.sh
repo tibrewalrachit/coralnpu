@@ -5,14 +5,21 @@
 # Run from the coralnpu repo root on a machine with bazel + network access.
 #
 #   ./platforms/chipyard/export-coralnpu-sv.sh [out dir]   (default: build/coralnpu-sv)
+#   ./platforms/chipyard/export-coralnpu-sv.sh --from-dir <dir with CoreMiniAxi.sv + CoreMiniAxi.zip> [out dir]
 #   export CORALNPU_SV=$PWD/build/coralnpu-sv/coralnpu_core_mini_axi.sv
+# --from-dir skips bazel and flattens an emit directory produced by any
+# other route (e.g. `sbt runMain coralnpu.EmitCore ...`).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+BIN=""
+if [ "${1:-}" = "--from-dir" ]; then BIN="$(cd "$2" && pwd)"; shift 2; fi
 OUT="${1:-$ROOT/build/coralnpu-sv}"
-TARGET="//hdl/chisel/src/coralnpu:core_mini_axi_cc_library_emit_verilog"
-cd "$ROOT"
-bazel build "$TARGET"
-BIN="$(bazel info bazel-bin)/hdl/chisel/src/coralnpu"
+if [ -z "$BIN" ]; then
+  TARGET="//hdl/chisel/src/coralnpu:core_mini_axi_cc_library_emit_verilog"
+  cd "$ROOT"
+  bazel build "$TARGET"
+  BIN="$(bazel info bazel-bin)/hdl/chisel/src/coralnpu"
+fi
 mkdir -p "$OUT/split"
 rm -rf "$OUT/split"/*
 unzip -q -o "$BIN/CoreMiniAxi.zip" -d "$OUT/split"
