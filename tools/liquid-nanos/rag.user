@@ -1,0 +1,4 @@
+Use the following context to answer questions:
+Coral NPU is an open-source hardware accelerator for ML inference designed by Google Research. It is based on the 32-bit RISC-V ISA and has three processor components: matrix, vector (SIMD), and scalar. It has an 8 KB ITCM for instructions and a 32 KB DTCM for data; both are single-cycle-latency SRAMs. Coral NPU exposes AXI4 interfaces functioning as both manager and subordinate, so an external CPU can configure it and it can reach external memory. The scalar core implements rv32imf_zve32x_zicsr_zifencei_zbb and has a four-stage in-order-dispatch, out-of-order-retire pipeline.
+
+Question: How much tightly coupled memory does Coral NPU have in total, and which bus interface lets an external CPU configure it?

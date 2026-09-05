@@ -1,0 +1,1 @@
+Return data as a JSON object with the following schema: {"invoice_number": string, "vendor": string, "date": string (YYYY-MM-DD), "total_amount": number, "currency": string, "line_items": [{"description": string, "quantity": number, "unit_price": number}]}

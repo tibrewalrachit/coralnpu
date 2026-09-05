@@ -1,0 +1,1 @@
+A bitstream build takes 4 hours on one build instance. Two builds run in parallel on separate instances, and each instance costs $0.74 per hour. If the run-farm FPGA instance costs $1.98 per hour and is used for 2 hours, what is the total cost in dollars? Give the final answer as a number.
