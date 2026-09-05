@@ -1,0 +1,8 @@
+{
+  "name": "coralnpu-linux",
+  "base": "br-base.json",
+  "overlay": "overlay",
+  "host-init": "host-init.sh",
+  "command": "/root/coralnpu-run --timeout-ms 5000; echo coralnpu-run exit=$?; sync",
+  "outputs": ["/root/coralnpu-run.log"]
+}
