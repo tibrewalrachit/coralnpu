@@ -1,0 +1,17 @@
+# Verilator build summary (CoralNPURocketConfig, Chipyard 1.14.0, 2026-09-05T08:28Z)
+host: 4 vCPU / 15 GB, verilator 
+NPU bundle: coralnpu_core_mini_axi.sv 1538916 bytes, 115 modules, sha256 c75344a5a408550f
+generated from coralnpu cf31a65 via emit-coralnpu-sv-sbt route (Chisel 7.0.0-RC1)
+
+      1 %Warning: System has stack size 8192 kb which may be too small; suggest 'ulimit -c 18013' or larger
+      1 %Warning-WIDTHTRUNC: /root/chipyard/sims/verilator/generated-src/chipyard.harness.TestHarness.CoralNPURocketConfig/gen-collateral/rf_31x64.sv:30:24: Bit extraction of var[63:0] requires 6 bit index, not 7 bits.
+      1 %Warning-WIDTHTRUNC: /root/chipyard/sims/verilator/generated-src/chipyard.harness.TestHarness.CoralNPURocketConfig/gen-collateral/ram_data_3x64.sv:26:24: Bit extraction of var[63:0] requires 6 bit index, not 7 bits.
+      1 %Warning-WIDTHTRUNC: /root/chipyard/sims/verilator/generated-src/chipyard.harness.TestHarness.CoralNPURocketConfig/gen-collateral/ram_2x63.sv:26:24: Bit extraction of var[63:0] requires 6 bit index, not 7 bits.
+      1 %Warning-WIDTHTRUNC: /root/chipyard/sims/verilator/generated-src/chipyard.harness.TestHarness.CoralNPURocketConfig/gen-collateral/ram_2x62.sv:26:24: Bit extraction of var[63:0] requires 6 bit index, not 7 bits.
+      1 %Warning-WIDTHTRUNC: /root/chipyard/sims/verilator/generated-src/chipyard.harness.TestHarness.CoralNPURocketConfig/gen-collateral/ram_2x52.sv:26:24: Bit extraction of var[63:0] requires 6 bit index, not 7 bits.
+      1 %Warning-WIDTHTRUNC: /root/chipyard/sims/verilator/generated-src/chipyard.harness.TestHarness.CoralNPURocketConfig/gen-collateral/ram_2x128.sv:26:24: Bit extraction of var[127:0] requires 7 bit index, not 8 bits.
+      1 %Warning-WIDTHTRUNC: /root/chipyard/sims/verilator/generated-src/chipyard.harness.TestHarness.CoralNPURocketConfig/gen-collateral/ram_2x127.sv:26:24: Bit extraction of var[127:0] requires 7 bit index, not 8 bits.
+      1 %Warning-WIDTHTRUNC: /root/chipyard/sims/verilator/generated-src/chipyard.harness.TestHarness.CoralNPURocketConfig/gen-collateral/ram_2x119.sv:26:24: Bit extraction of var[127:0] requires 7 bit index, not 8 bits.
+      1 %Warning-WIDTHTRUNC: /root/chipyard/sims/verilator/generated-src/chipyard.harness.TestHarness.CoralNPURocketConfig/gen-collateral/ram_2x117.sv:26:24: Bit extraction of var[127:0] requires 7 bit index, not 8 bits.
+      1 %Warning-WIDTHTRUNC: /root/chipyard/sims/verilator/generated-src/chipyard.harness.TestHarness.CoralNPURocketConfig/gen-collateral/ram_2x116.sv:26:24: Bit extraction of var[127:0] requires 7 bit index, not 8 bits.
+      1 %Warning-WIDTHTRUNC: /root/chipyard/sims/verilator/generated-src/chipyard.harness.TestHarness.CoralNPURocketConfig/gen-collateral/ram_2x114.sv:26:24: Bit extraction of var[127:0] requires 7 bit index, not 8 bits.

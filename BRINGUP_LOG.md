@@ -154,3 +154,22 @@ yet, so the container was used to de-risk the source work instead.
 - **Works:** wrapper compiles and elaborates on a Rocket host; DTS/memory map/interrupts as designed; bare-metal test and Linux loader compile.
 - **Doesn't work yet:** nothing simulated; Coral SV not yet generated.
 - **Blocking:** Verilator run needs the Coral SV (sbt route running). Everything else still needs the manager instance.
+
+## Phase 2 — gate reached: bare-metal test PASSES in Verilator with the real NPU
+
+| # | Command | Outcome |
+|---|---|---|
+| 8 | sbt route, attempt 1 (Scala 2.13.12) | FAILED: Chisel 7.0.0-RC1 needs scala-library ≥ 2.13.16 (SIP-51) |
+| 9 | attempt 2 (2.13.16) | FAILED: `SpiMaster.scala` needs the excluded rocket-chip file; `ScmInfo` is bazel-generated |
+| 10 | attempt 3 (exclude `SpiMaster.scala`, generate `ScmInfo` from `git rev-parse HEAD` like `utils/scm_info.py`) | Scala OK; FAILED at elaboration: `RstSync.sv` resource not found (bazel strips `hdl/verilog` for ClockGate/RstSync) |
+| 11 | attempt 4 (add `hdl/verilog` as a second resource root) | **OK**: `CoreMiniAxi.sv` (1.5 MB, 115 modules incl. CVFPU, ClockGate, RstSync, SRAM models inlined by firtool) + `CoreMiniAxi.zip`. 5 Chisel warnings, all in Coral's own `Library.scala` enum casts. Route scripted as `emit-coralnpu-sv-sbt.sh`. |
+| 12 | `tools/check_ports.py CoreMiniAxi.sv` | first run reported 91 problems — a parser bug (firtool groups ports, one `input` keyword for several names). Fixed; **95 expected ports, 0 problems, 0 untied inputs**. |
+| 13 | `export-coralnpu-sv.sh --from-dir` | flattened bundle; dropped firtool verification-layer bind files; found **module-name collisions** `ram_2x8`, `ram_2x145` with Chipyard's own generated memories → bundle now prefixes `ram_<d>x<w>` as `coralnpu_ram_*`; 0 collisions after |
+| 14 | `CORALNPU_SV=<bundle> make -j4 CONFIG=CoralNPURocketConfig run-binary BINARY=tests/build/coralnpu.riscv` | **PASS**. Verilator log (`platforms/chipyard/logs/verilator-CoralNPURocketConfig-coralnpu.log`): `CTRL.STATUS=0x0` after reset release, 19 words loaded, `CSR STATUS=0x1 after 1 polls, CTRL.STATUS=0x1`, `DTCM[0]=0x6688aacc DTCM[1]=0x40700000 DTCM[2]=0xc0de0001`, `coralnpu: PASS`, `$finish`. |
+
+What this proves: TL→AXI4 slave path (128-bit, ID 6, address masking, narrow CSR writes landing in the right byte lanes), ITCM/DTCM/CSR access, Coral's reset/clock-gate sequence, the wrapper control block, FPU inside the NPU, `halted` readback both ways. Not exercised yet: the NPU's AXI **master** path (firmware touched only TCMs), PLIC delivery of `halted`/`fault`, CVA6 host, Linux.
+
+### CHECKPOINT (Phase 2 — complete for the Rocket host)
+- **Works:** end-to-end bare-metal NPU test in Verilator with the real `CoreMiniAxi`.
+- **Doesn't work / not done:** CVA6 host not simulated (VCS-only); NPU master path untested.
+- **Blocking for Phases 1/4/5:** AWS credentials + manager instance.

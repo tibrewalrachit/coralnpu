@@ -5,10 +5,14 @@ Chipyard SoC as a **SystemVerilog blackbox**, run a bare-metal smoke test in
 Verilator, boot Linux on a FireSim-simulated **CVA6** on **AWS F2**, and have a
 user-space loader print `CORALNPU PASS` on the UART.
 
-Status of this directory: written against **FireSim 1.21.0 / Chipyard 1.14.0 /
-rocket-chip `55bcad0`** by reading their sources. It has **not** been compiled
-or simulated yet (the authoring machine had no Chipyard toolchain, no Vivado
-and no AWS access). See `../../BRINGUP_LOG.md` for what was and was not run.
+Status: written against **FireSim 1.21.0 / Chipyard 1.14.0 / rocket-chip
+`55bcad0`**. Verified so far (see `../../BRINGUP_LOG.md` and `logs/`):
+
+- `CoralNPURocketConfig` elaborates, and the bare-metal test **passes in
+  Verilator with the real `CoreMiniAxi`** (`logs/verilator-CoralNPURocketConfig-coralnpu.log`).
+- `tests/coralnpu.c` and `linux/coralnpu-run.c` compile with the Chipyard toolchains.
+- Not yet run: CVA6 host (VCS-only in software sim), Linux boot, FireSim
+  bitstreams, F2 runs (need Vivado / AWS).
 
 ## Layout
 
@@ -86,9 +90,13 @@ git clone https://github.com/firesim/firesim && cd firesim && git checkout 1.21.
 source sourceme-manager.sh
 export FS_DIR=$PWD CY_DIR=$PWD/target-design/chipyard
 
-# 1. Coral NPU SV (needs bazel 7.4.1 via bazelisk, network access to GitHub archives)
+# 1. Coral NPU SV. Either bazel (needs GitHub archive downloads) ...
 git clone https://github.com/google-coral/coralnpu ~/coralnpu   # or this fork
-cd ~/coralnpu && ./platforms/chipyard/export-coralnpu-sv.sh      # -> build/coralnpu-sv/coralnpu_core_mini_axi.sv
+cd ~/coralnpu && ./platforms/chipyard/export-coralnpu-sv.sh --fpga   # -> build/coralnpu-sv/coralnpu_core_mini_axi.sv
+#    ... or the sbt route (git clones + Maven only; this is what was verified):
+cd ~/coralnpu && ./platforms/chipyard/emit-coralnpu-sv-sbt.sh && \
+  ./platforms/chipyard/export-coralnpu-sv.sh --fpga --from-dir build/coralnpu-sbt/emit build/coralnpu-sv
+#    (omit --fpga for Verilator: it selects the BUFGCE clock gate in ClockGate.sv)
 export CORALNPU_SV=$HOME/coralnpu/build/coralnpu-sv/coralnpu_core_mini_axi.sv
 
 # 2. Chipyard overlay + bare-metal test in Verilator (Rocket host; CVA6 is VCS-only)
@@ -135,11 +143,14 @@ from the `firesim buildbitstream` output.
 
 ## Known caveats
 
-- **Unverified code.** Elaboration, Verilator, VCS, Vivado and F2 runs are all
-  still to do. First things to expect: Scala compile nits in `CoralNPU.scala`,
-  `check_ports.py` disagreements if Coral's port naming differs from the
-  Chisel bundle flattening assumed here, and SV file ordering inside the
-  flattened bundle.
+- **Verified only on a Rocket host in Verilator.** VCS (CVA6), Vivado and F2
+  runs are still to do. The NPU's AXI master path is not exercised by the
+  smoke firmware (it only touches the TCMs); `halted`/`fault` reach the PLIC
+  but no handler consumes them yet.
+- firtool names generated memories `ram_<depth>x<width>` in both Coral's and
+  Chipyard's output; `export-coralnpu-sv.sh` prefixes Coral's to avoid the
+  duplicate-module error. Re-check with the collision test in the log if
+  either side changes firtool version.
 - Chipyard documents CVA6 as **VCS-only** for software simulation. The
   bare-metal test therefore targets `CoralNPURocketConfig`; Linux-on-CVA6 in
   software sim needs a VCS licence on the manager.

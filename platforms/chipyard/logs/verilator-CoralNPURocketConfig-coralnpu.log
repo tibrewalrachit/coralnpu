@@ -1,0 +1,9 @@
+%Warning: System has stack size 8192 kb which may be too small; suggest 'ulimit -c 18013' or larger
+[UART] UART0 is here (stdin/stdout).
+coralnpu: releasing async reset
+coralnpu: CTRL.STATUS=0x0 (expect halted=0)
+coralnpu: loaded 19 firmware words into ITCM
+coralnpu: CSR STATUS=0x1 after 1 polls, CTRL.STATUS=0x1
+coralnpu: DTCM[0]=0x6688aacc DTCM[1]=0x40700000 DTCM[2]=0xc0de0001
+coralnpu: PASS
+- /root/chipyard/sims/verilator/generated-src/chipyard.harness.TestHarness.CoralNPURocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
