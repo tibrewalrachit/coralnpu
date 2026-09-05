@@ -1,0 +1,34 @@
+# Append to $FS_DIR/deploy/config_build_recipes.yaml (or pass with -r).
+# Two builds: the CVA6 baseline (Phase 1) and CVA6 + Coral NPU (Phase 4).
+# fpga_frequency: CVA6 closes timing around 90 MHz on F2 in upstream recipes;
+# the NPU adds a 128-bit AXI fabric so start conservatively at 65 MHz.
+
+firesim_cva6_singlecore_no_nic_baseline:
+    PLATFORM: f2
+    TARGET_PROJECT: firesim
+    TARGET_PROJECT_MAKEFRAG: ../../generators/firechip/chip/src/main/makefrag/firesim
+    DESIGN: FireSim
+    TARGET_CONFIG: FireSimCVA6Config
+    PLATFORM_CONFIG: WithAutoILA_FRFCFS16GBQuadRankLLC4MB_BaseF2Config
+    deploy_quintuplet: null
+    platform_config_args:
+        fpga_frequency: 90
+        build_strategy: TIMING
+    post_build_hook: null
+    metasim_customruntimeconfig: null
+    bit_builder_recipe: bit-builder-recipes/f2.yaml
+
+firesim_cva6_singlecore_no_nic_coralnpu:
+    PLATFORM: f2
+    TARGET_PROJECT: firesim
+    TARGET_PROJECT_MAKEFRAG: ../../generators/firechip/chip/src/main/makefrag/firesim
+    DESIGN: FireSim
+    TARGET_CONFIG: FireSimCVA6CoralNPUConfig
+    PLATFORM_CONFIG: WithAutoILA_FRFCFS16GBQuadRankLLC4MB_BaseF2Config
+    deploy_quintuplet: null
+    platform_config_args:
+        fpga_frequency: 65
+        build_strategy: TIMING
+    post_build_hook: null
+    metasim_customruntimeconfig: null
+    bit_builder_recipe: bit-builder-recipes/f2.yaml

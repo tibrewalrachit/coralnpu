@@ -77,3 +77,60 @@ toolchains cannot run here. See the checkpoint at the end of this phase.
 - **Works:** repo cloned on the target branch; FireSim 1.21.0 / Chipyard 1.14.0 / cva6-wrapper facts recorded; Coral NPU interface, widths, memory map, CSR map and run sequence recorded from source; bazelisk present.
 - **Doesn't work:** bazel SV generation (proxy blocks `github.com/*/archive/*.zip`, failed twice); no Verilator, no RISC-V toolchains, no conda, no Vivado, no VCS, no valid AWS credentials.
 - **Blocking:** this is not the FireSim manager instance. Phases 1, 4, 5 (managerinit, bitstream builds, F2 runs) and the Verilator/VCS boots cannot be executed here. Phase 2/3 source work (blackbox wrapper, config fragment, bare-metal test, Linux loader, FireMarshal workload) can be written here but not compiled or simulated. Additional risk: Chipyard docs state CVA6 is VCS-only (no Verilator), so Phase 1's Verilator boot needs a VCS license on the manager or a Rocket-based smoke test instead.
+
+## Phase 0b — Can this container drive AWS at all? (after user: "aws login when needed, ask for creds")
+
+| Probe | Result |
+|---|---|
+| Outbound TCP 22 (github.com:22) | **BLOCKED** → cannot ssh to a manager or build/run farm hosts on port 22 |
+| Outbound TCP 443 to arbitrary hosts (1.1.1.1:443) | **OPEN** (direct, not via proxy) |
+| `ec2.*`, `ssm.*`, `s3.amazonaws.com` APIs | reachable |
+| conda-forge repodata / Miniforge release | reachable (200) |
+| session-manager-plugin download | reachable (200) |
+
+Consequence: with valid credentials this container can launch a manager
+instance via the EC2 API and reach it over **443** (user-data adds `Port 443`
+to sshd, or SSM Session Manager). The FireSim manager itself must run on that
+EC2 instance; it cannot run here. Nothing costing money has been done.
+
+## Phase 2 — Coral NPU as a Chipyard peripheral (source work, no simulation)
+
+All files under `platforms/chipyard/` (see its README). Facts they rest on
+were read from Chipyard 1.14.0, rocket-chip `55bcad0`, cva6-wrapper `187ed3cd`,
+FireSim 1.21.0 and this repo's `CoreAxi.scala` / `CoreAxiCSR.scala` /
+`bus/Axi.scala`.
+
+| # | Item | Outcome |
+|---|---|---|
+| 1 | `CoralNPU.scala`: blackbox with Coral's exact port names (`io_axi_slave_write_addr_bits_addr` …), AXI4 slave node (256 KiB window, single-beat, 128-bit), AXI4 master node (`IdRange(0,64)`), `IntSourceNode(2)`, control `TLRegisterNode`; attached through `SubsystemInjectorKey` (same mechanism as `WithInitZero`), so no `DigitalTop` edit | written, **not compiled** |
+| 2 | Attachment chains copied from upstream: slave = `AXI4Buffer := AXI4UserYanker := AXI4IdIndexer(6) := TLToAXI4 := TLWidthWidget(pbus) := TLFragmenter(holdFirstDeny)`; master = rocket-chip `CanHaveSlaveAXI4Port` chain with `AXI4IdIndexer(1)`; interrupts `ibus.fromSync` | written |
+| 3 | `stall`/reset: `CoreMiniAxi` has **no stall port**; Coral's own CSR RESET reg (bit0 reset, bit1 clock-gate, por=3) is the stall+reset control. Wrapper adds CTRL.soft_reset (aresetn) and STATUS readback at `0x6004_0000` | design decision, documented in README |
+| 4 | `WithCoralNPU`, `CoralNPURocketConfig`, `CoralNPUCVA6Config`, `FireSimCVA6CoralNPUConfig`, `FireSimRocketCoralNPUConfig` | written |
+| 5 | Firmware `firmware/coralnpu_fw.S` assembled here with clang 18 (`--target=riscv32 -march=rv32imf`, no C) → 19 words, `mpause = 0x08000073`; `build-fw.sh` rejects compressed encodings | **built and disassembled here** (`coralnpu_fw.dis`) |
+| 6 | `tests/coralnpu.c` bare-metal test: reset release → RESET=3 → ITCM load+readback → PC_START → RESET=1 → RESET=0 → poll halted → DTCM check → `coralnpu: PASS` | written, **not run** (no Chipyard/Verilator here) |
+| 7 | `export-coralnpu-sv.sh`: bazel emit + unzip `CoreMiniAxi.zip` (split SV + CVFPU/common_cells/ClockGate/RstSync/SRAM resources) → single `coralnpu_core_mini_axi.sv`, packages first | written, **not run** (bazel fetch blocked here) |
+| 8 | `tools/check_ports.py`: parses `module CoreMiniAxi(` and checks names/widths of the 100+ ports the blackbox uses, flags untied inputs | written; self-test only against `/dev/null` |
+| 9 | Verilator run of the bare-metal test | **NOT DONE** — needs the manager (Chipyard toolchain). Blocking gate for Phase 4 per the plan. |
+
+### CHECKPOINT (end of Phase 2)
+- **Works:** firmware assembles cleanly with the mandated ISA; all Chipyard-side sources exist as a reviewable overlay + apply script.
+- **Doesn't work / unverified:** nothing has been elaborated or simulated. Expect first-compile fixes.
+- **Blocking:** Chipyard toolchain + Verilator (manager instance), Coral SV generation (bazel needs GitHub archive access).
+
+## Phase 3 — Linux-side loader and workload (source work)
+
+| # | Item | Outcome |
+|---|---|---|
+| 1 | `linux/coralnpu-run.c`: `/dev/mem` mmap of `0x6000_0000` (256 KiB) and `0x6004_0000` (4 KiB); same sequence as the bare-metal test; `CORALNPU PASS` / `CORALNPU FAIL: <why>`; exit code 0/1; `--timeout-ms` | written, **not compiled** (no riscv64-linux toolchain here) |
+| 2 | FireMarshal `coralnpu-linux.json`: `base: br-base.json`, `host-init.sh` builds the loader statically with `riscv64-unknown-linux-gnu-gcc` into `overlay/root/`, `command` runs it post-boot so the UART shows PASS without interaction | written, **not built** |
+| 3 | Device tree: diplomacy emits a `coralnpu` node (`compatible = "google,coralnpu-v2"`, `reg` = both windows, 2 PLIC interrupts) from `SimpleDevice` + `device.reg` / `device.int`; no manual DTS edit | by construction; verify in the generated `.dts` on the manager |
+
+### CHECKPOINT (end of Phase 3)
+- **Works:** loader + workload sources complete.
+- **Doesn't work:** unbuilt. Full Linux+loader Verilator flow (Phase 4 parallel task) needs the manager and, for CVA6, VCS.
+- **Blocking:** same as Phase 2.
+
+## Phase 1 / 4 / 5 — NOT STARTED (need AWS)
+
+`firesim managerinit`, both bitstream builds, and the F2 runs need a manager
+instance. Cost plan proposed to the user; waiting for credentials.

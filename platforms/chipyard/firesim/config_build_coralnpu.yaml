@@ -1,0 +1,5 @@
+# Replace the builds_to_run section of $FS_DIR/deploy/config_build.yaml.
+# Phase 1 runs only the baseline; Phase 4 adds the NPU build (second z1d.2xlarge).
+builds_to_run:
+    - firesim_cva6_singlecore_no_nic_baseline
+    # - firesim_cva6_singlecore_no_nic_coralnpu

@@ -1,0 +1,13 @@
+# Append to $FS_DIR/deploy/config_hwdb.yaml once the builds finish.
+# The manager prints the exact entry (with the agfi id) at the end of each
+# `firesim buildbitstream`. AGFI ids below are placeholders until then.
+firesim_cva6_singlecore_no_nic_baseline:
+    agfi: agfi-TODO-FILL-FROM-BUILD-OUTPUT
+    deploy_quintuplet_override: null
+    deploy_makefrag_override: ../../generators/firechip/chip/src/main/makefrag/firesim
+    custom_runtime_config: null
+firesim_cva6_singlecore_no_nic_coralnpu:
+    agfi: agfi-TODO-FILL-FROM-BUILD-OUTPUT
+    deploy_quintuplet_override: null
+    deploy_makefrag_override: ../../generators/firechip/chip/src/main/makefrag/firesim
+    custom_runtime_config: null
