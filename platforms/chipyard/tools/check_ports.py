@@ -27,20 +27,30 @@ src = open(sys.argv[1]).read()
 m = re.search(r"^module\s+CoreMiniAxi\s*\((.*?)\);", src, re.S | re.M)
 if not m:
     sys.exit("module CoreMiniAxi not found in " + sys.argv[1])
-ports = {}
+ports, dirs = {}, {}
+cur_dir, cur_w = None, 1
 for line in m.group(1).split("\n"):
     line = line.split("//")[0].strip().rstrip(",")
-    pm = re.match(r"(input|output|inout)\s+(?:(?:wire|logic|reg)\s+)?(?:\[(\d+):(\d+)\]\s+)?(\w+)", line)
+    if not line:
+        continue
+    pm = re.match(r"(input|output|inout)\s+(?:(?:wire|logic|reg)\s+)?(?:\[(\d+):(\d+)\]\s+)?(\w+)$", line)
     if pm:
-        hi, lo = pm.group(2), pm.group(3)
-        ports[pm.group(4)] = (int(hi) - int(lo) + 1) if hi else 1
+        cur_dir = pm.group(1)
+        cur_w = (int(pm.group(2)) - int(pm.group(3)) + 1) if pm.group(2) else 1
+        name = pm.group(4)
+    elif re.match(r"^\w+$", line) and cur_dir:   # continuation: same direction/width
+        name = line
+    else:
+        continue
+    ports[name] = cur_w
+    dirs[name] = cur_dir
 bad = 0
 for name, w in sorted(EXPECTED.items()):
     if name not in ports:
         print("MISSING", name); bad += 1
     elif ports[name] != w:
         print("WIDTH  ", name, "sv=%d expected=%d" % (ports[name], w)); bad += 1
-extra_inputs = [p for p in ports if p not in EXPECTED and re.search(r"^\s*input\b[^;]*\b%s\b" % p, m.group(1), re.M)]
+extra_inputs = [p for p in ports if p not in EXPECTED and dirs[p] == "input"]
 for p in extra_inputs:
     print("UNTIED INPUT", p); bad += 1
 print("%d expected ports checked, %d problems, %d ports in module" % (len(EXPECTED), bad, len(ports)))
