@@ -173,3 +173,14 @@ What this proves: TL→AXI4 slave path (128-bit, ID 6, address masking, narrow C
 - **Works:** end-to-end bare-metal NPU test in Verilator with the real `CoreMiniAxi`.
 - **Doesn't work / not done:** CVA6 host not simulated (VCS-only); NPU master path untested.
 - **Blocking for Phases 1/4/5:** AWS credentials + manager instance.
+
+## Phase 4 prep — CVA6 + NPU target elaborates
+
+| # | Command | Outcome |
+|---|---|---|
+| 15 | `CORALNPU_SV=<bundle> make -j4 CONFIG=CoralNPUCVA6Config verilog` | **OK, exit 0** (elaboration only; CVA6 is VCS-only for simulation). DTS: `cpu@0 compatible = "openhwgroup,cva6"`, `coralnpu@60040000 { interrupts = <1 2>; reg = <0x60040000 0x1000 0x60000000 0x40000>; }`; NPU interrupts 1,2; CVA6 AXI mem port sources 7..9. `gen-collateral/CoralNPU.sv` instantiates `CoreMiniAxi`. This is the RTL `FireSimCVA6CoralNPUConfig` will be built from (plus FireSim bridges). |
+
+### CHECKPOINT
+- **Works:** both host configs (Rocket, CVA6) elaborate with the real NPU; Rocket-host smoke test passes in Verilator.
+- **Doesn't work / not done:** Linux + loader in software sim (needs FireMarshal and, for CVA6, VCS on the manager); FireSim builds; F2 runs.
+- **Blocking:** AWS credentials for the manager instance. Nothing has cost money.
