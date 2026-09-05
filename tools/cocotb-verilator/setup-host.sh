@@ -14,7 +14,7 @@ if [ ! -x "$HOME/miniforge3/bin/conda" ]; then
 fi
 source "$HOME/miniforge3/etc/profile.d/conda.sh"
 [ -d "$HOME/miniforge3/envs/vl" ] || conda create -y -q -n vl -c conda-forge "verilator=5.050" ccache sbt openjdk=17 "python=3.11"
-python3 -m pip install --user -q cocotb pyelftools numpy tqdm
+python3 -m pip install --user -q "cocotb==2.0.0" pyelftools numpy tqdm   # 2.0.0: Coral pins it; 2.1 changes handle types (PackedObject)
 if [ ! -x "$CORAL_TC/riscv32-unknown-elf-gcc" ]; then
   mkdir -p "$CORAL_WORK/toolchain"
   curl -sSL https://storage.googleapis.com/shodan-public-artifacts/toolchain_kelvin_tar_files/toolchain_kelvin_v2-2025-09-11.tar.gz | tar xz -C "$CORAL_WORK/toolchain"

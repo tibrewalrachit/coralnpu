@@ -37,9 +37,12 @@ if a.jobs: tuned += ["--build-jobs", str(a.jobs)]
 
 runner = get_runner("verilator")
 t0 = time.time()
+if a.no_build:
+    # test() needs the state build() sets; run build() with no commands.
+    runner._build_command = lambda: []
+runner.build(sources=[a.sv], hdl_toplevel="CoreMiniAxi", build_dir=a.build_dir, always=not a.no_build,
+             build_args=base_args + tuned, waves=False)
 if not a.no_build:
-    runner.build(sources=[a.sv], hdl_toplevel="CoreMiniAxi", build_dir=a.build_dir, always=True,
-                 build_args=base_args + tuned, waves=False)
     print(f"[run_cocotb] verilator build: {time.time()-t0:.0f}s", flush=True)
 if a.build_only: sys.exit(0)
 
@@ -47,9 +50,21 @@ if a.build_only: sys.exit(0)
 roots = [os.environ.get("CORAL_RUNFILES", str(Path(a.build_dir).resolve() / "runfiles")), a.repo]
 env = {"CORAL_RUNFILES_ROOTS": ":".join(roots),
        "PYTHONPATH": ":".join([str(Path(__file__).resolve().parent / "shim"), a.repo, os.environ.get("PYTHONPATH", "")])}
+os.environ.update(env)
+sys.path[:0] = [str(Path(__file__).resolve().parent / "shim"), a.repo]   # runner builds the sim PYTHONPATH from sys.path
 tests = [t for t in a.tests.split(",") if t] or None
 t1 = time.time()
 runner.test(hdl_toplevel="CoreMiniAxi", test_module="core_mini_axi_sim", build_dir=a.build_dir,
             test_dir=str(Path(a.repo) / "tests" / "cocotb"), testcase=tests, seed=a.seed,
             extra_env=env, results_xml=a.results or str(Path(a.build_dir).resolve() / "results.xml"))
 print(f"[run_cocotb] tests: {time.time()-t1:.0f}s", flush=True)
+import xml.etree.ElementTree as ET
+xmlp = a.results or str(Path(a.build_dir).resolve() / "results.xml")
+try:
+    cases = list(ET.parse(xmlp).iter("testcase"))
+except Exception as e:
+    print(f"[run_cocotb] no results xml ({e})"); sys.exit(1)
+cases = [c for c in cases if c.find("skipped") is None]
+bad = [c.get("name") for c in cases if c.find("failure") is not None or c.find("error") is not None]
+print(f"[run_cocotb] {len(cases)} test(s) run, {len(bad)} failed" + (": " + ", ".join(bad) if bad else ""))
+sys.exit(1 if bad or not cases else 0)

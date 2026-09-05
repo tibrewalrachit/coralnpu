@@ -51,7 +51,7 @@ Results: `~/coral-cocotb/results/<test>.xml|log` on the instance,
 
 ## Known deviations from the bazel flow
 
-- cocotb 2.1 (pip) instead of the pinned 2.0.0 wheel; Verilator 5.050 instead of
+- cocotb 2.0.0 from PyPI (same version bazel pins; 2.1 breaks `set_x` in the test utils); Verilator 5.050 instead of
   bazel's pinned build.
 - `-O0` test programs like bazel fastbuild; `-u _printf_float` (bazel feature
   `printf_float`) is off because it does not fit ITCM.

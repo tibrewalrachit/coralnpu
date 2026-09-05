@@ -33,6 +33,7 @@ import sys, glob, xml.etree.ElementTree as ET
 tot=fail=0
 for f in sorted(glob.glob(sys.argv[1]+"/*.xml")):
     for tc in ET.parse(f).iter("testcase"):
+        if tc.find("skipped") is not None: continue
         tot+=1; bad = tc.find("failure") is not None or tc.find("error") is not None; fail+=bad
         print(("FAIL " if bad else "PASS ") + tc.get("name") + "  %.1fs" % float(tc.get("time", 0)))
 print("== %d tests, %d failed" % (tot, fail)); sys.exit(1 if fail else 0)
