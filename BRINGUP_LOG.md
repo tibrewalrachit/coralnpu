@@ -1,0 +1,79 @@
+# Bring-up log: CVA6 + Coral NPU on FireSim / AWS F2
+
+Chronological. Every state-mutating command is recorded with its outcome.
+Each phase ends with a `CHECKPOINT` line.
+
+## Phase 0 — Inventory (2026-09-05)
+
+### 0.1 Where am I actually running?
+
+| Probe | Result |
+|---|---|
+| Host | `vm`, Ubuntu 24.04.4 LTS, x86_64, 4 vCPU, 15 GB RAM, 30 GB free disk |
+| FireSim manager / FPGA Developer AMI? | **No.** No `/home/centos`, no `/opt/Xilinx`, no `firesim`, no `aws` CLI, no conda |
+| EC2 instance metadata | Unreachable (not an EC2 instance) |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars | Set, but `sts:GetCallerIdentity` returns `InvalidClientTokenId` — placeholders, not usable |
+| Vivado | Absent |
+| Verilator / VCS | Absent |
+| RISC-V toolchains (rv32 elf, rv64 elf, rv64 linux) | Absent |
+| bazel / bazelisk | Absent (installed bazelisk to `~/bin`, see 0.4) |
+| sbt / scala | Absent |
+| gcc 13.3 / clang 18 / python 3.11.15 / pip 24 / docker 29 / git 2.43 | Present |
+| Outbound network | Only via the session proxy. `git clone` of github.com works. GitHub **release** downloads work. GitHub **source archive** URLs (`/archive/*.zip`, `codeload.github.com`) return **403**. `storage.googleapis.com` and Maven Central reach fine. |
+
+Conclusion: this session is a sandboxed container, not the FireSim manager instance
+the plan assumes. Everything that needs AWS, Vivado, VCS, or conda-managed
+toolchains cannot run here. See the checkpoint at the end of this phase.
+
+### 0.2 State-mutating commands run
+
+| # | Command | Outcome |
+|---|---|---|
+| 1 | `git checkout claude/cva6-coral-firesim-f2-ob5gdg` (branch pre-existed on origin, tracks `main` at `98ffe39`) | OK |
+| 2 | `git clone --depth 1 --branch 1.21.0 https://github.com/firesim/firesim.git` (scratchpad, no submodules) | OK, HEAD `da2a1cb` |
+| 3 | `git clone --depth 1 --branch 1.14.0 https://github.com/ucb-bar/chipyard.git` (scratchpad, no submodules) | OK, HEAD `0acc1e1` |
+| 4 | `git clone --filter=blob:none --no-checkout https://github.com/ucb-bar/cva6-wrapper.git` + sparse checkout of `chipyard/` at `187ed3cd` (Chipyard 1.14.0 pin) | OK |
+| 5 | `curl -L .../bazelisk-linux-amd64 -o ~/bin/bazelisk` (user-space, no system packages) | OK, bazelisk v1.29.0 |
+| 6 | `pip install --user boto3` (only to run the read-only STS identity check) | OK |
+| 7 | `bazel query 'kind(".*", //hdl/chisel/src/coralnpu:all)'` in this repo | **FAILED**: fetch of `@rules_proto` from `github.com/bazelbuild/rules_proto/archive/<sha>.zip` → HTTP 403 from the proxy |
+| 8 | Re-check of the same URL and `codeload.github.com` with `curl` | **FAILED again (403)**. Two consecutive failures → stopped per rule 4. Not attempting a mirror/workaround without asking. |
+
+### 0.3 FireSim / Chipyard inventory
+
+| Item | Value |
+|---|---|
+| FireSim latest release | **1.21.0** (tag), commit `da2a1cb` |
+| Platforms shipped | `f1`, **`f2`**, `xilinx_alveo_u200/u250/u280`, `xilinx_vcu118`, `rhsresearch_nitefury_ii`, `vitis` |
+| F2 shell repo / pin | submodule `platforms/f2/aws-fpga-firesim-f2` @ `80b34d3c25aff03353c0b4f2d304bb6067a5011d` = head of branch `bump-upstream` (PR #4) of `firesim/aws-fpga-firesim-f2`. No tag. F2 build uses `aws_build_dcp_from_cl.py --mode small_shell`, clock recipe A1/B0/C0. **Use exactly this submodule commit; do not mix with `platforms/f1/aws-fpga` (`53223d7`).** |
+| F2 bit builder | `deploy/bit-builder-recipes/f2.yaml` → `F2BitBuilder`, needs an S3 bucket (`s3_bucket_name: firesim`, user+region appended) |
+| Build farm default | `z1d.2xlarge` on-demand per build (`deploy/build-farm-recipes/aws_ec2.yaml`); docs: 2–6 h per bitstream, larger instances give diminishing returns |
+| Run farm default | `AWSEC2F2`, `f2.6xlarge: 1` (1 FPGA) (`deploy/run-farm-recipes/aws_ec2.yaml`) |
+| Chipyard pinned by FireSim 1.21.0 | Chipyard **1.14.0** (`0acc1e1`) — its `sims/firesim` submodule points back at `da2a1cb`, so the pair is consistent |
+| CVA6 generator | `generators/cva6` = `ucb-bar/cva6-wrapper` @ `187ed3cd` |
+| CVA6 config names | `chipyard.CVA6Config` = `cva6.WithNCVA6Cores(1) ++ AbstractConfig`; `chipyard.dmiCVA6Config`; FireSim target **`FireSimCVA6Config`** = `WithDefaultFireSimBridges ++ WithFireSimConfigTweaks ++ chipyard.CVA6Config` (`generators/firechip/chip/src/main/scala/TargetConfigs.scala:310`) |
+| CVA6 software-sim support | Chipyard docs (`docs/Generators/CVA6.rst`): **"This target does not support Verilator simulation at this time. Please use VCS."** Also: single-core only (AXI, non-coherent). |
+| Pre-built F2 AGFI for CVA6 | **None.** `sample_config_hwdb.yaml` in 1.21.0 contains only a placeholder `midasexamples_gcd` with an invalid URL. The AGFI IDs in the docs are Rocket examples. Baseline CVA6 bitstream must be built. |
+| AXI4 blackbox reference pattern | `generators/chipyard/src/main/scala/example/GCD.scala` (`GCDAXI4` + `WithGCD(useAXI4=true, useBlackBox=true)`; `pbus.coupleTo` with `TLToAXI4 := TLFragmenter(holdFirstDeny=true)`), `example/InitZero.scala` (`fbus.coupleFrom` client-side), Verilog resources in `generators/chipyard/src/main/resources/vsrc/` |
+| Bare-metal test dir | `chipyard/tests/*.c` with CMake (`tests/CMakeLists.txt`, e.g. `gcd.c`) |
+
+### 0.4 Coral NPU inventory (this repo, `98ffe39`)
+
+| Item | Value |
+|---|---|
+| Build system | Bazel **7.4.1** (`.bazelversion`), WORKSPACE-based (no MODULE.bazel). Needs Python 3.9–3.12 and SRecord (`srec_cat`, absent here) |
+| RISC-V toolchain | Hermetic, fetched by bazel: `toolchain_kelvin_v2-2025-09-11.tar.gz` from `storage.googleapis.com` (reachable). Default `-march=rv32imf_zve32x_zicsr_zifencei_zbb`, no `c` (matches the pitfall note) |
+| SV generation target | `//hdl/chisel/src/coralnpu:core_mini_axi_cc_library` (template in `hdl/chisel/src/coralnpu/BUILD:447`), emits `CoreMiniAxi.sv` + `CoreMiniAxi.zip`, flags `--enableFetchL0=False --fetchDataBits=128 --lsuDataBits=128 --enableFloat=True --moduleName=CoreMini --useAxi`. RVV variant: `rvv_core_mini_axi_cc_library` |
+| Top module | `CoreMiniAxi` (`CoreAxi.scala`, RawModule). Ports: `aclk`, `aresetn` (async, active-low), `axi_slave` (ITCM/DTCM/CSR), `axi_master`, `halted`, `fault`, `wfi` (out), `irq`, `boot_addr[31:0]`, `te` (in), `debug`, `dm` (debug module) |
+| AXI widths (both ports) | **ID = 6, ADDR = 32, DATA = 128** (`axi2IdBits=6`, `axi2DataBits = lsuDataBits = 128`). Master read-data demux uses ID 0 (data) / ID 1 (fetch): the SoC side must return the same ID it was given |
+| Slave memory map (default, used by `core_mini_axi`) | ITCM `0x0000_0000` +8 KB; DTCM `0x0001_0000` +32 KB; CSR `0x0003_0000` +4 KB (`Parameters.scala` `MemoryRegions.default`) |
+| CSR block (`CoreAxiCSR.scala`) | `+0x0` reset reg: bit0 = core reset (active high), bit1 = clock gate; **resets to 3** (held in reset, clock gated). `+0x4` PC_START (loaded from `boot_addr` on reset). `+0x8` status: bit0 = halted, bit1 = fault. `+0x800..0x814` debug-module request/response regs |
+| `stall` port | **Does not exist** on `CoreMiniAxi`. The equivalent is the CSR reset register: bit1 (clock gate) is the "stall", bit0 the reset. Plan's "stall + reset controllable from MMIO" is therefore satisfied by the IP's own CSR at `+0x30000`; no extra control block needed |
+| Reference load/run sequence (`coralnpu_test_utils/core_mini_axi_interface.py`) | 1. pulse `aresetn` → CSR reset reg = 3. 2. AXI-write ITCM/DTCM. 3. write PC_START (`0x30004`). 4. write reset reg = 1 (ungate clock, keep reset). 5. write reset reg = 0 (release reset). 6. poll status (`0x30008`) bit0 for `halted` |
+| Existing FPGA/SoC glue | `fpga/` (fusesoc/Vivado Nexus flow), `hw_sim/core_mini_axi_wrapper` (Verilator C++ wrapper) — useful as reference, not reused |
+| `bazel` here | bazelisk installed; workspace fetch **blocked** by proxy 403 on GitHub source archives (see 0.2 #7–8). SV cannot be generated in this container. |
+
+### CHECKPOINT (end of Phase 0)
+
+- **Works:** repo cloned on the target branch; FireSim 1.21.0 / Chipyard 1.14.0 / cva6-wrapper facts recorded; Coral NPU interface, widths, memory map, CSR map and run sequence recorded from source; bazelisk present.
+- **Doesn't work:** bazel SV generation (proxy blocks `github.com/*/archive/*.zip`, failed twice); no Verilator, no RISC-V toolchains, no conda, no Vivado, no VCS, no valid AWS credentials.
+- **Blocking:** this is not the FireSim manager instance. Phases 1, 4, 5 (managerinit, bitstream builds, F2 runs) and the Verilator/VCS boots cannot be executed here. Phase 2/3 source work (blackbox wrapper, config fragment, bare-metal test, Linux loader, FireMarshal workload) can be written here but not compiled or simulated. Additional risk: Chipyard docs state CVA6 is VCS-only (no Verilator), so Phase 1's Verilator boot needs a VCS license on the manager or a Rocket-based smoke test instead.
