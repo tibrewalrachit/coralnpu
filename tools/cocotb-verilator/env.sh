@@ -6,4 +6,5 @@ export CORAL_SV="${CORAL_SV:-$CORAL_WORK/sv/coralnpu_core_mini_axi.sv}"      # f
 export CORAL_RUNFILES="${CORAL_RUNFILES:-$CORAL_WORK/runfiles}"               # built test artifacts
 export CORAL_THREADS="${CORAL_THREADS:-2}"                                     # Verilator --threads
 export CORAL_JOBS="${CORAL_JOBS:-$(nproc)}"
-export PATH="$HOME/miniforge3/envs/vl/bin:$PATH"                              # verilator 5.050 (setup-host.sh)
+export CORAL_PY="${CORAL_PY:-$CORAL_WORK/venv/bin/python3}"                         # python with cocotb 2.0.0 (setup-host.sh)
+export PATH="$PATH:$HOME/miniforge3/envs/vl/bin"                              # verilator 5.050, appended so the system python3 wins

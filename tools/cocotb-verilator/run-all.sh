@@ -19,16 +19,16 @@ RES=$CORAL_WORK/results; BUILD=$CORAL_WORK/sim_build; mkdir -p "$RES"
 [ $SKIP_SETUP = 1 ] || "$HERE/setup-host.sh"
 if [ $SKIP_BUILD = 0 ]; then
   "$HERE/build-elfs.sh"; "$HERE/build-riscv-tests.sh"
-  /usr/bin/time -f "verilate+compile: %es wall, %MkB maxrss" python3 "$HERE/run_cocotb.py" --sv "$CORAL_SV" --repo "$CORAL_REPO" --build-dir "$BUILD" --build-only --threads "$CORAL_THREADS" --jobs "$CORAL_JOBS" 2>&1 | tail -3
+  "$CORAL_PY" "$HERE/run_cocotb.py" --sv "$CORAL_SV" --repo "$CORAL_REPO" --build-dir "$BUILD" --build-only --threads "$CORAL_THREADS" --jobs "$CORAL_JOBS" 2>&1 | tail -3
 fi
 echo "running ${#ALL[@]} tests, $PAR in parallel, $CORAL_THREADS verilator threads each"
 start=$(date +%s)
 printf '%s\n' "${ALL[@]}" | xargs -P "$PAR" -I{} bash -c '
   t={}; s=$(date +%s)
-  python3 "'"$HERE"'/run_cocotb.py" --sv "'"$CORAL_SV"'" --repo "'"$CORAL_REPO"'" --build-dir "'"$BUILD"'" --no-build --tests "$t" --results "'"$RES"'/$t.xml" > "'"$RES"'/$t.log" 2>&1
+  "'"$CORAL_PY"'" "'"$HERE"'/run_cocotb.py" --sv "'"$CORAL_SV"'" --repo "'"$CORAL_REPO"'" --build-dir "'"$BUILD"'" --no-build --tests "$t" --results "'"$RES"'/$t.xml" > "'"$RES"'/$t.log" 2>&1
   rc=$?; echo "$t rc=$rc $(( $(date +%s)-s ))s"'
 echo "total: $(( $(date +%s)-start ))s"
-python3 - "$RES" <<'PY'
+"$CORAL_PY" - "$RES" <<'PY'
 import sys, glob, xml.etree.ElementTree as ET
 tot=fail=0
 for f in sorted(glob.glob(sys.argv[1]+"/*.xml")):
@@ -36,5 +36,5 @@ for f in sorted(glob.glob(sys.argv[1]+"/*.xml")):
         if tc.find("skipped") is not None: continue
         tot+=1; bad = tc.find("failure") is not None or tc.find("error") is not None; fail+=bad
         print(("FAIL " if bad else "PASS ") + tc.get("name") + "  %.1fs" % float(tc.get("time", 0)))
-print("== %d tests, %d failed" % (tot, fail)); sys.exit(1 if fail else 0)
+print("== %d tests, %d failed" % (tot, fail)); sys.exit(1 if fail or tot == 0 else 0)
 PY
