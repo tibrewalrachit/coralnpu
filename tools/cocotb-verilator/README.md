@@ -53,6 +53,6 @@ Results: `~/coral-cocotb/results/<test>.xml|log` on the instance,
 
 - cocotb 2.0.0 from PyPI (same version bazel pins; 2.1 breaks `set_x` in the test utils); Verilator 5.050 instead of
   bazel's pinned build.
-- `-O0` test programs like bazel fastbuild; `-u _printf_float` (bazel feature
+- `-O1` test programs like bazel fastbuild; `-u _printf_float` (bazel feature
   `printf_float`) is off because it does not fit ITCM.
 - `core_mini_axi_riscv_dv` uses the checked-in `tests/cocotb/riscv-dv/*.o`.

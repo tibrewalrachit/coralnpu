@@ -1,0 +1,36 @@
+running 16 tests, 2 in parallel, 2 verilator threads each
+core_mini_axi_run_wfi_in_all_slots rc=0 0s
+core_mini_axi_slow_bready rc=0 1s
+core_mini_axi_write_read_memory_stress_test rc=0 30s
+core_mini_axi_master_write_alignment rc=1 1s
+core_mini_axi_finish_txn_before_halt_test rc=0 0s
+core_mini_axi_riscv_tests rc=0 7s
+core_mini_axi_riscv_dv rc=0 5s
+core_mini_axi_csr_test rc=0 48s
+core_mini_axi_exceptions_test rc=1 0s
+core_mini_axi_coralnpu_isa_test rc=1 1s
+core_mini_axi_rand_instr_test rc=0 5s
+core_mini_axi_basic_write_read_memory rc=0 135s
+core_mini_axi_float_csr_test rc=1 1s
+unreachable_prefetch_fault rc=0 1s
+core_mini_axi_frm_test rc=0 1s
+core_mini_axi_burst_types_test rc=0 97s
+total: 195s
+PASS core_mini_axi_basic_write_read_memory  135.2s
+PASS core_mini_axi_burst_types_test  96.6s
+FAIL core_mini_axi_coralnpu_isa_test  0.2s
+PASS core_mini_axi_csr_test  47.4s
+FAIL core_mini_axi_exceptions_test  0.1s
+PASS core_mini_axi_finish_txn_before_halt_test  0.0s
+FAIL core_mini_axi_float_csr_test  0.0s
+PASS core_mini_axi_frm_test  0.2s
+FAIL core_mini_axi_master_write_alignment  0.1s
+PASS core_mini_axi_rand_instr_test  4.4s
+PASS core_mini_axi_riscv_dv  3.8s
+PASS core_mini_axi_riscv_tests  6.3s
+PASS core_mini_axi_run_wfi_in_all_slots  0.1s
+PASS core_mini_axi_slow_bready  0.2s
+PASS core_mini_axi_write_read_memory_stress_test  29.8s
+PASS unreachable_prefetch_fault  0.3s
+== 16 tests, 4 failed
+exit=1
